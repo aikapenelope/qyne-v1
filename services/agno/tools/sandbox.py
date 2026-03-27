@@ -1,9 +1,13 @@
 """
-NEXUS Cerebro — Docker-in-Docker Sandbox Tool.
+QYNE v1 — Docker-in-Docker Sandbox Tool.
 
-Gives AI agents their own persistent compute environment.
-Each sandbox is a Docker container with resource limits.
+Gives AI agents their own persistent compute environment (micro-PC).
+Each sandbox is a Docker container with resource limits and internet access.
 State persists between sessions via mounted volumes.
+
+The sandbox runs on an isolated network (qyne-sandbox-net) that has
+internet access (for pip install, API calls) but cannot reach internal
+QYNE services (Directus, PostgreSQL, Redis, etc.).
 """
 
 import docker
@@ -12,28 +16,35 @@ from docker.errors import DockerException, NotFound
 from agno.tools.decorator import tool
 
 _SANDBOX_IMAGE = "python:3.12-slim"
-_SANDBOX_PREFIX = "nexus-sandbox-"
+_SANDBOX_PREFIX = "qyne-sandbox-"
 _SANDBOX_VOLUME_BASE = "/opt/sandboxes"
 _MEMORY_LIMIT = "512m"
-_CPU_LIMIT = 1.0  # 1 core max
+_CPU_LIMIT = 1.0
+_SANDBOX_NETWORK = "qyne-sandbox-net"
 
 
 def _get_client() -> docker.DockerClient:
-    """Get Docker client. Fails gracefully if Docker socket is not mounted."""
     try:
         return docker.from_env()
     except DockerException:
-        raise RuntimeError(
-            "Docker socket not available. Mount /var/run/docker.sock to enable sandboxes."
-        )
+        raise RuntimeError("Docker socket not available.")
+
+
+def _ensure_network(client: docker.DockerClient) -> str:
+    """Create isolated bridge network (internet yes, internal services no)."""
+    try:
+        client.networks.get(_SANDBOX_NETWORK)
+    except NotFound:
+        client.networks.create(_SANDBOX_NETWORK, driver="bridge", internal=False)
+    return _SANDBOX_NETWORK
 
 
 @tool()
 def create_sandbox(sandbox_id: str = "default") -> str:
-    """Create or start a persistent sandbox container for code execution.
+    """Create or start a persistent sandbox container (micro-PC).
 
-    The sandbox is an isolated Docker container where you can run code,
-    install packages, and store files. State persists between sessions.
+    The sandbox has internet access (pip install, API calls, web browsing)
+    but cannot reach internal services. State persists between sessions.
 
     Args:
         sandbox_id: Unique identifier for this sandbox (default: "default").
@@ -41,7 +52,6 @@ def create_sandbox(sandbox_id: str = "default") -> str:
     client = _get_client()
     name = f"{_SANDBOX_PREFIX}{sandbox_id}"
 
-    # Check if sandbox already exists
     try:
         container = client.containers.get(name)
         if container.status != "running":
@@ -50,7 +60,8 @@ def create_sandbox(sandbox_id: str = "default") -> str:
     except NotFound:
         pass
 
-    # Create new sandbox
+    network = _ensure_network(client)
+
     container = client.containers.run(
         _SANDBOX_IMAGE,
         command="sleep infinity",
@@ -65,7 +76,7 @@ def create_sandbox(sandbox_id: str = "default") -> str:
             }
         },
         working_dir="/workspace",
-        network_mode="none",  # No network access by default (security)
+        network=network,
     )
 
     return f"SANDBOX_CREATED: {name} (image={_SANDBOX_IMAGE}, memory={_MEMORY_LIMIT})"
@@ -78,9 +89,6 @@ def run_in_sandbox(code: str, sandbox_id: str = "default") -> str:
     Args:
         code: Python code to execute.
         sandbox_id: Which sandbox to use (default: "default").
-
-    Returns:
-        stdout + stderr from the execution (truncated to 4000 chars).
     """
     client = _get_client()
     name = f"{_SANDBOX_PREFIX}{sandbox_id}"
@@ -93,11 +101,7 @@ def run_in_sandbox(code: str, sandbox_id: str = "default") -> str:
     if container.status != "running":
         container.start()
 
-    exit_code, output = container.exec_run(
-        ["python3", "-c", code],
-        workdir="/workspace",
-    )
-
+    exit_code, output = container.exec_run(["python3", "-c", code], workdir="/workspace")
     result = output.decode("utf-8", errors="replace")[:4000]
     status = "OK" if exit_code == 0 else f"ERROR (exit={exit_code})"
     return f"[{status}]\n{result}"
@@ -124,11 +128,7 @@ def sandbox_shell(command: str, sandbox_id: str = "default") -> str:
     if container.status != "running":
         container.start()
 
-    exit_code, output = container.exec_run(
-        ["sh", "-c", command],
-        workdir="/workspace",
-    )
-
+    exit_code, output = container.exec_run(["sh", "-c", command], workdir="/workspace")
     result = output.decode("utf-8", errors="replace")[:4000]
     status = "OK" if exit_code == 0 else f"ERROR (exit={exit_code})"
     return f"[{status}]\n{result}"
