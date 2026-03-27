@@ -198,10 +198,10 @@ export interface Note {
 }
 
 export const listNotes = async (limit = 50): Promise<Note[]> => {
-  const resp = await directusRequest<{ data: Note[] }>(
+  const resp = await directusRequest<{ data: Array<Record<string, unknown>> }>(
     `/items/conversations?limit=${limit}&sort=-date_created&fields=id,channel,raw_message,intent,date_created`
   );
-  return (resp.data || []).map((n: Record<string, unknown>) => ({
+  return (resp.data || []).map((n) => ({
     id: n.id as number,
     title: (n.intent as string) || (n.channel as string) || "Conversacion",
     body: (n.raw_message as string) || "",
