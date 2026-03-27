@@ -1,0 +1,8 @@
+# Traefik dynamic routes — uncomment when domain is configured
+# http:
+#   routers:
+#     frontend:
+#       rule: "Host(`${DOMAIN}`)"
+#       service: frontend
+#       tls:
+#         certResolver: letsencrypt
