@@ -154,6 +154,19 @@ def escalate_to_human(
         },
     )
 
+    _directus_create(
+        "events",
+        {
+            "type": "escalation",
+            "payload": {
+                "product": product,
+                "client": client_name,
+                "reason": reason,
+                "urgency": urgency,
+            },
+        },
+    )
+
     if "error" in result:
         return f"ESCALATED (CRM error: {result['error']}): {product} {client_name} {reason}"
 
@@ -201,6 +214,20 @@ def save_contact(
 
     result = _directus_create("contacts", person_data)
 
+    if notes:
+        _directus_create(
+            "events",
+            {
+                "type": "contact_note",
+                "payload": {
+                    "name": f"{first_name} {last_name}",
+                    "product": product,
+                    "lead_score": lead_score,
+                    "notes": notes,
+                },
+            },
+        )
+
     if "error" in result:
         return f"CONTACT_SAVED (CRM error: {result['error']}): {first_name} {last_name}"
 
@@ -236,7 +263,68 @@ def save_company(
 
     result = _directus_create("companies", company_data)
 
+    if notes or industry:
+        _directus_create(
+            "events",
+            {
+                "type": "company_note",
+                "payload": {"company": name, "industry": industry, "notes": notes},
+            },
+        )
+
     if "error" in result:
         return f"COMPANY_SAVED (CRM error: {result['error']}): {name}"
 
     return f"COMPANY_SAVED: {name}{f' ({domain})' if domain else ''} — Registrado en Directus"
+
+
+@tool()
+def log_conversation(
+    client_name: str,
+    product: str,
+    channel: str = "whatsapp",
+    summary: str = "",
+    intent: str = "",
+    sentiment: str = "neutral",
+    lead_score: int = 0,
+    next_action: str = "",
+) -> str:
+    """Log a complete conversation summary in Directus CRM.
+
+    ALWAYS call this at the END of every conversation. Include:
+    - What the client asked about (intent)
+    - How the conversation went (sentiment: positive/neutral/negative)
+    - What to do next (next_action)
+    - Lead score if applicable
+    """
+    result = _directus_create(
+        "conversations",
+        {
+            "channel": channel,
+            "direction": "inbound",
+            "raw_message": summary,
+            "agent_response": next_action or "",
+            "intent": intent,
+            "sentiment": sentiment,
+            "lead_score": lead_score,
+            "agent_name": "qyne-support",
+        },
+    )
+
+    if next_action:
+        _directus_create(
+            "tasks",
+            {
+                "title": f"Seguimiento: {client_name} ({product})",
+                "body": f"Accion: {next_action}\nContexto: {summary[:200]}",
+                "status": "todo",
+            },
+        )
+
+    if "error" in result:
+        return f"CONVERSATION_LOGGED (CRM error: {result['error']}): {client_name}"
+
+    return (
+        f"CONVERSATION_LOGGED: {client_name} ({product}) via {channel} "
+        f"intent={intent} sentiment={sentiment} score={lead_score} — Registrado en Directus"
+    )

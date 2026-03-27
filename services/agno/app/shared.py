@@ -60,3 +60,6 @@ compression = CompressionManager(
     model=FAST_MODEL,
     compress_tool_results=True,
 )
+
+# Convenience aliases
+learning = learning_minimal
