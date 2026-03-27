@@ -526,7 +526,7 @@ function DetailPanel({
               </button>
             </div>
             {chatOutput && (
-              <div className="mt-3 bg-zinc-900/50 border border-[#1e1e24] rounded-lg p-3 max-h-[200px] overflow-y-auto">
+              <div className="mt-3 bg-zinc-900/50 border border-[#1e1e24] rounded-lg p-3 overflow-y-auto">
                 <div className="agent-response text-[12px] text-zinc-300 leading-relaxed">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{chatOutput}</ReactMarkdown>
                 </div>
