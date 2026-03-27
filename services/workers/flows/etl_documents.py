@@ -17,7 +17,6 @@ from prefect.logging import get_run_logger
 
 DIRECTUS_URL = os.getenv("DIRECTUS_URL", "http://directus:8055")
 DIRECTUS_TOKEN = os.getenv("DIRECTUS_TOKEN", "")
-AGNO_VECTOR_DB_URL = os.getenv("AGNO_VECTOR_DB_URL", "")
 
 
 @task(retries=2, retry_delay_seconds=10)
@@ -77,21 +76,18 @@ def save_to_directus(doc: dict, collection: str = "documents") -> str:
 
 @task(retries=1)
 def generate_embeddings(doc: dict) -> str:
-    """Generate embeddings and store in pgvector for knowledge base search."""
-    if not AGNO_VECTOR_DB_URL:
-        return "skipped (no vector DB URL)"
-
+    """Generate embeddings and store in LanceDB for knowledge base search."""
     logger = get_run_logger()
 
     try:
         from agno.knowledge.knowledge import Knowledge
         from agno.knowledge.embedder.voyageai import VoyageAIEmbedder
-        from agno.vectordb.pgvector import PgVector, SearchType
+        from agno.vectordb.lancedb import LanceDb, SearchType
 
         embedder = VoyageAIEmbedder(id="voyage-3-lite", dimensions=512)
-        vector_db = PgVector(
+        vector_db = LanceDb(
+            uri="/app/data/lancedb",
             table_name="nexus_knowledge",
-            db_url=AGNO_VECTOR_DB_URL,
             search_type=SearchType.hybrid,
             embedder=embedder,
         )
