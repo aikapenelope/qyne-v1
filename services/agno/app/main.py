@@ -1,8 +1,6 @@
 """
-NEXUS Cerebro — AgentOS Entry Point.
-
-Production entry point that registers all agents, teams, and workflows.
-Uses PostgreSQL + pgvector (configured in app.config).
+QYNE v1 — AgentOS Entry Point.
+Uses SQLite + LanceDB (configured in app.config).
 """
 
 import os

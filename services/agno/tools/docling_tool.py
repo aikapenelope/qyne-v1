@@ -84,7 +84,7 @@ def parse_and_index_document(
 ) -> str:
     """Parse a document, save its content to Directus, and index it in the knowledge base.
 
-    This is the full pipeline: parse -> store in Directus -> generate embeddings -> pgvector.
+    This is the full pipeline: parse -> store in Directus -> generate embeddings -> LanceDB.
     Use this when a document should become part of the permanent knowledge base.
 
     Args:
@@ -127,7 +127,7 @@ def parse_and_index_document(
     else:
         directus_status = "skipped (no token)"
 
-    # Step 3: Index in knowledge base (pgvector)
+    # Step 3: Index in knowledge base (LanceDB)
     try:
         knowledge_base.insert(content=markdown, metadata={"title": title, "source": file_path})
         kb_status = "indexed"
