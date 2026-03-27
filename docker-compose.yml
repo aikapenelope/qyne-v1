@@ -228,6 +228,7 @@ services:
     container_name: qyne-frontend
     restart: unless-stopped
     environment:
+      HOSTNAME: "0.0.0.0"
       NEXT_PUBLIC_API_URL: http://agno:8000
       AGNO_AGUI_URL: http://agno:8000/agui
     ports:
