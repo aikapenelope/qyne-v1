@@ -83,26 +83,6 @@ services:
     networks:
       - qyne
 
-  reranker:
-    image: michaelf34/infinity:0.0.76
-    container_name: qyne-reranker
-    restart: unless-stopped
-    command: v2 --model-id BAAI/bge-reranker-base --port 7997
-    ports:
-      - "127.0.0.1:7997:7997"
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://127.0.0.1:7997/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 90s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    networks:
-      - qyne
-
   # ---------------------------------------------------------------------------
   # DIRECTUS — Data layer (owns directus_db)
   # ---------------------------------------------------------------------------
