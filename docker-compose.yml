@@ -172,7 +172,9 @@ services:
       WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
     volumes:
       - agno-data:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Docker socket REMOVED for security (OWASP LLM04).
+      # When code execution is needed, use DaytonaTools (pip install agno[daytona])
+      # which creates isolated workspaces without exposing the host socket.
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
