@@ -46,7 +46,7 @@ if SKILLS_DIR.exists():
 synthesis_agent = Agent(
     name="Synthesis Agent",
     model=REASONING_MODEL,
-    output_model=ResearchReport,
+    output_schema=ResearchReport,
     instructions=[
         "You receive research findings and internal knowledge context.",
         "Synthesize everything into a structured research report.",
