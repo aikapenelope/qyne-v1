@@ -12,27 +12,20 @@ from docker.errors import DockerException, NotFound
 from agno.tools.decorator import tool
 
 _SANDBOX_IMAGE = "python:3.12-slim"
-_SANDBOX_PREFIX = "qyne-sandbox-"
+_SANDBOX_PREFIX = "nexus-sandbox-"
 _SANDBOX_VOLUME_BASE = "/opt/sandboxes"
 _MEMORY_LIMIT = "512m"
-_CPU_LIMIT = 1.0
-_SANDBOX_NETWORK = "qyne-sandbox-net"
+_CPU_LIMIT = 1.0  # 1 core max
 
 
 def _get_client() -> docker.DockerClient:
+    """Get Docker client. Fails gracefully if Docker socket is not mounted."""
     try:
         return docker.from_env()
     except DockerException:
-        raise RuntimeError("Docker socket not available.")
-
-
-def _ensure_sandbox_network(client: docker.DockerClient) -> str:
-    """Create isolated bridge network for sandboxes (internet yes, internal services no)."""
-    try:
-        client.networks.get(_SANDBOX_NETWORK)
-    except NotFound:
-        client.networks.create(_SANDBOX_NETWORK, driver="bridge", internal=False)
-    return _SANDBOX_NETWORK
+        raise RuntimeError(
+            "Docker socket not available. Mount /var/run/docker.sock to enable sandboxes."
+        )
 
 
 @tool()
@@ -57,8 +50,7 @@ def create_sandbox(sandbox_id: str = "default") -> str:
     except NotFound:
         pass
 
-    network = _ensure_sandbox_network(client)
-
+    # Create new sandbox
     container = client.containers.run(
         _SANDBOX_IMAGE,
         command="sleep infinity",
@@ -73,7 +65,7 @@ def create_sandbox(sandbox_id: str = "default") -> str:
             }
         },
         working_dir="/workspace",
-        network=network,
+        network_mode="none",  # No network access by default (security)
     )
 
     return f"SANDBOX_CREATED: {name} (image={_SANDBOX_IMAGE}, memory={_MEMORY_LIMIT})"

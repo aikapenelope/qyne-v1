@@ -1,6 +1,8 @@
 """
-QYNE v1 — Knowledge Agent.
-Queries the internal knowledge base (LanceDB) and provides context.
+NEXUS Cerebro — Knowledge Agent.
+
+Queries the internal knowledge base (pgvector) and provides context.
+Uses reasoning for complex queries that require multi-step analysis.
 """
 
 from agno.agent import Agent
