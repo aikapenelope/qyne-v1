@@ -28,7 +28,7 @@ import {
   type Company,
   type Task,
   type Note,
-} from "@/lib/twenty";
+} from "@/lib/directus";
 
 /* ------------------------------------------------------------------ */
 /* Tabs                                                                */
@@ -52,8 +52,8 @@ function formatDate(d?: string): string {
   return new Date(d).toLocaleDateString("es", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-// Use personDisplayName from twenty.ts
-import { personDisplayName, personEmail, personPhone } from "@/lib/twenty";
+// Use personDisplayName from directus.ts
+import { personDisplayName, personEmail, personPhone } from "@/lib/directus";
 
 /* ------------------------------------------------------------------ */
 /* Create contact modal                                                */
@@ -266,10 +266,10 @@ export default function CrmPage() {
         <div className="max-w-4xl mx-auto">
           {error && (
             <div className="text-center text-amber-400 text-[13px] bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-4">
-              Twenty CRM no disponible: {error}
+              Directus CRM no disponible: {error}
               <br />
               <span className="text-[11px] text-zinc-600">
-                Verifica que Twenty esta corriendo en localhost:3000 y NEXT_PUBLIC_TWENTY_API_KEY esta configurado
+                Verifica que Directus esta corriendo y DIRECTUS_TOKEN esta configurado
               </span>
             </div>
           )}

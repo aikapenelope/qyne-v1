@@ -213,6 +213,8 @@ services:
       HOSTNAME: "0.0.0.0"
       NEXT_PUBLIC_API_URL: http://agno:8000
       AGNO_AGUI_URL: http://agno:8000/agui
+      NEXT_PUBLIC_DIRECTUS_URL: http://directus:8055
+      DIRECTUS_TOKEN: ${DIRECTUS_TOKEN:-}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
