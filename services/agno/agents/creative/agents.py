@@ -4,18 +4,24 @@ QYNE v1 — Creative Studio.
 Image generation, video generation, and media description agents.
 """
 
+import os
+
 from agno.agent import Agent
 from agno.team import Team, TeamMode
-from agno.tools.nano_banana import NanoBananaTools
 
 from app.config import TOOL_MODEL, FAST_MODEL, db
 from app.shared import guardrails, learning
+
+_image_tools: list = []
+if os.getenv("GOOGLE_API_KEY"):
+    from agno.tools.nano_banana import NanoBananaTools
+    _image_tools.append(NanoBananaTools())
 
 image_generator = Agent(
     name="Image Generator",
     role="Generate AI images from text prompts",
     model=TOOL_MODEL,
-    tools=[NanoBananaTools()],
+    tools=_image_tools or None,
     tool_call_limit=3,
     pre_hooks=guardrails,
     instructions=[
