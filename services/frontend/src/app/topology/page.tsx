@@ -64,8 +64,8 @@ interface WorkflowNode {
 /* ------------------------------------------------------------------ */
 
 const AGENT_META: Record<string, { mcp?: string[]; learning?: string }> = {
-  "automation-agent": { mcp: ["n8n", "Twenty CRM"], learning: "minimal" },
-  "dash": { mcp: ["Twenty CRM"], learning: "full" },
+  "automation-agent": { mcp: ["n8n", "Directus CRM"], learning: "minimal" },
+  "dash": { mcp: ["Directus CRM"], learning: "full" },
   "pal": { learning: "full" },
   "onboarding-agent": { learning: "full" },
   "invoice-agent": { learning: "full" },
