@@ -1,0 +1,19 @@
+[project]
+name = "nexus-workers"
+version = "0.1.0"
+description = "NEXUS Cerebro — Prefect workers (scraping, ETL, embeddings)"
+requires-python = ">=3.12"
+
+dependencies = [
+    "prefect>=3.0",
+    "httpx",
+    "crawl4ai",
+    "psycopg[binary]",
+    "pgvector",
+    "voyageai",
+    "beautifulsoup4",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"

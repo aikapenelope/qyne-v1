@@ -1,0 +1,79 @@
+[project]
+name = "nexus-agno"
+version = "0.1.0"
+description = "NEXUS Cerebro Corporativo — Agno AgentOS"
+requires-python = ">=3.12"
+
+dependencies = [
+    # Core: Agno with AgentOS runtime (FastAPI, uvicorn, sqlalchemy, tracing)
+    "agno[os]",
+
+    # Database: PostgreSQL + pgvector (production)
+    "agno[postgres]",
+    "psycopg[binary]",
+    "pgvector",
+
+    # Models
+    "agno[groq]",
+    "agno[openai]",
+
+    # Tools: Free (no API key)
+    "agno[arxiv]",
+    "agno[ddg]",
+    "agno[newspaper]",
+    "agno[youtube]",
+    "pypdf",
+    "praw",
+    "yfinance",
+    "wikipedia",
+    "newspaper4k[nlp]",
+
+    # Tools: Require API keys
+    "agno[exa]",
+    "agno[github]",
+    "agno[slack]",
+    "agno[tavily]",
+    "agno[todoist]",
+
+    # Tools: Additional integrations
+    "tweepy",
+    "firecrawl-py",
+    "spider-client",
+    "google-genai",
+    "lumaai",
+
+    # Tools: MCP protocol (for Directus MCP server)
+    "agno[mcp]",
+
+    # Knowledge: Voyage AI embeddings (pgvector as vector store)
+    "voyageai",
+
+    # Frontend: AG-UI protocol for CopilotKit
+    "ag-ui-protocol",
+
+    # Document processing
+    "docling",
+
+    # Reranker client (connects to local Infinity server)
+    "infinity-client",
+
+    # Docker SDK (for DinD sandbox tool)
+    "docker",
+
+    # HTTP client (for Directus REST fallback)
+    "httpx",
+]
+
+[project.optional-dependencies]
+all = [
+    "nexus-agno[default]",
+]
+dev = [
+    "pyright",
+    "ruff",
+    "black",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"

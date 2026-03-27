@@ -1,0 +1,416 @@
+# =============================================================================
+# QYNE v1 — Docker Compose
+# =============================================================================
+# Each service owns its own data. No shared databases.
+# Services communicate only via HTTP APIs.
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # DATA LAYER
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: qyne-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    networks:
+      - qyne
+
+  redis:
+    image: redis:7-alpine
+    container_name: qyne-redis
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - redis-data:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - qyne
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: qyne-rustfs
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      RUSTFS_ROOT_USER: ${RUSTFS_USER:-qyne}
+      RUSTFS_ROOT_PASSWORD: ${RUSTFS_PASSWORD:-qyne-secret}
+    volumes:
+      - rustfs-data:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - qyne
+
+  reranker:
+    image: michaelf34/infinity:0.0.76
+    container_name: qyne-reranker
+    restart: unless-stopped
+    command: v2 --model-id BAAI/bge-reranker-base --port 7997
+    ports:
+      - "127.0.0.1:7997:7997"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:7997/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - qyne
+
+  # ---------------------------------------------------------------------------
+  # DIRECTUS — Data layer (owns directus_db)
+  # ---------------------------------------------------------------------------
+
+  directus:
+    image: directus/directus:11.5.0
+    container_name: qyne-directus
+    restart: unless-stopped
+    environment:
+      SECRET: ${DIRECTUS_SECRET}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL:-admin@qyne.local}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD}
+
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: directus_db
+      DB_USER: directus_user
+      DB_PASSWORD: directus_password
+
+      CACHE_ENABLED: "true"
+      CACHE_STORE: redis
+      CACHE_AUTO_PURGE: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+
+      RATE_LIMITER_ENABLED: "true"
+      RATE_LIMITER_STORE: redis
+      RATE_LIMITER_POINTS: "50"
+      RATE_LIMITER_DURATION: "1"
+      PRESSURE_LIMITER_ENABLED: "true"
+      LOG_LEVEL: "warn"
+
+      WEBSOCKETS_ENABLED: "true"
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: "true"
+      PUBLIC_URL: ${DIRECTUS_PUBLIC_URL:-http://localhost:8055}
+      MCP_ENABLED: "true"
+
+      STORAGE_LOCATIONS: "local"
+    volumes:
+      - directus-uploads:/directus/uploads
+      - directus-extensions:/directus/extensions
+    ports:
+      - "127.0.0.1:8055:8055"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8055/server/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    networks:
+      - qyne
+
+  # ---------------------------------------------------------------------------
+  # AGNO — Cognitive layer (SQLite + LanceDB, no PostgreSQL)
+  # ---------------------------------------------------------------------------
+
+  agno:
+    build:
+      context: ./services/agno
+      dockerfile: Dockerfile
+    container_name: qyne-agno
+    restart: unless-stopped
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+      RERANKER_HOST: reranker
+      RERANKER_PORT: "7997"
+      PREFECT_API_URL: http://prefect:4200/api
+      DIRECTUS_URL: http://directus:8055
+      DIRECTUS_TOKEN: ${DIRECTUS_TOKEN:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_WEBHOOK_URL: ${WHATSAPP_WEBHOOK_URL:-}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+    volumes:
+      - agno-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      directus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    networks:
+      - qyne
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whatsapp.rule=Path(`/whatsapp/webhook`)"
+      - "traefik.http.routers.whatsapp.entrypoints=websecure"
+      - "traefik.http.services.whatsapp.loadbalancer.server.port=8000"
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND — Next.js + CopilotKit (AG-UI)
+  # ---------------------------------------------------------------------------
+
+  frontend:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+    container_name: qyne-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://agno:8000
+      AGNO_AGUI_URL: http://agno:8000/agui
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      agno:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - qyne
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.frontend.priority=1"
+
+  # ---------------------------------------------------------------------------
+  # N8N — Workflow automation (SQLite, no PostgreSQL)
+  # ---------------------------------------------------------------------------
+
+  n8n:
+    image: n8nio/n8n:1.91.3
+    container_name: qyne-n8n
+    restart: unless-stopped
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
+      GENERIC_TIMEZONE: America/Bogota
+      N8N_RUNNERS_ENABLED: "false"
+      N8N_DEFAULT_BINARY_DATA_MODE: "filesystem"
+      N8N_CONCURRENCY_PRODUCTION_LIMIT: "5"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+      N8N_COMMUNITY_PACKAGES_ENABLED: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+    volumes:
+      - n8n-data:/home/node/.n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    networks:
+      - qyne
+
+  # ---------------------------------------------------------------------------
+  # PREFECT — Workflow orchestration (owns prefect_db)
+  # ---------------------------------------------------------------------------
+
+  prefect:
+    image: prefecthq/prefect:3-latest
+    container_name: qyne-prefect
+    restart: unless-stopped
+    command: prefect server start --host 0.0.0.0
+    environment:
+      PREFECT_API_DATABASE_CONNECTION_URL: "postgresql+asyncpg://prefect_user:prefect_password@postgres:5432/prefect_db"
+    ports:
+      - "127.0.0.1:4200:4200"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request as u; u.urlopen(\"http://127.0.0.1:4200/api/health\", timeout=5)'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    networks:
+      - qyne
+
+  prefect-worker:
+    build:
+      context: ./services/workers
+      dockerfile: Dockerfile
+    container_name: qyne-prefect-worker
+    restart: unless-stopped
+    command: prefect worker start --pool default-pool --type process --with-healthcheck
+    environment:
+      PREFECT_API_URL: http://prefect:4200/api
+      PREFECT_WORKER_WEBSERVER_HOST: "0.0.0.0"
+      PREFECT_WORKER_WEBSERVER_PORT: "8080"
+      DIRECTUS_URL: http://directus:8055
+      DIRECTUS_TOKEN: ${DIRECTUS_TOKEN:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+    volumes:
+      - agno-data:/app/data:ro
+    depends_on:
+      prefect:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request as u; u.urlopen(\"http://127.0.0.1:8080/health\", timeout=5)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    networks:
+      - qyne
+
+  # ---------------------------------------------------------------------------
+  # MONITORING
+  # ---------------------------------------------------------------------------
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: qyne-uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - uptime-kuma-data:/app/data
+    ports:
+      - "127.0.0.1:3001:3001"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - qyne
+
+  # ---------------------------------------------------------------------------
+  # REVERSE PROXY
+  # ---------------------------------------------------------------------------
+
+  traefik:
+    image: traefik:v3.3
+    container_name: qyne-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik-certs:/letsencrypt
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    networks:
+      - qyne
+
+volumes:
+  postgres-data:
+  redis-data:
+  rustfs-data:
+  directus-uploads:
+  directus-extensions:
+  agno-data:
+  n8n-data:
+  uptime-kuma-data:
+  traefik-certs:
+
+networks:
+  qyne:
+    driver: bridge
