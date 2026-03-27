@@ -30,7 +30,7 @@ from agents.support import support_agent
 interfaces: list = []
 
 if _agui_available:
-    interfaces.append(AGUI())
+    interfaces.append(AGUI(agent=support_agent))
 
 if os.getenv("WHATSAPP_ACCESS_TOKEN"):
     interfaces.append(Whatsapp(agent=support_agent))
