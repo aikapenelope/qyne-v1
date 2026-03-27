@@ -11,7 +11,7 @@ venv/
 node_modules/
 .next/
 out/
-data/
+/data/
 .vscode/
 .idea/
 *.swp

@@ -26,6 +26,12 @@ from tools.directus_business import (
     save_company,
     log_conversation,
 )
+from tools.prefect_api import (
+    list_prefect_deployments,
+    trigger_prefect_flow,
+    check_prefect_flow_status,
+    list_recent_flow_runs,
+)
 
 # ---------------------------------------------------------------------------
 # Skills
@@ -52,7 +58,10 @@ if SKILLS_DIR.exists():
 # Automation tools (MCP: n8n + Directus)
 # ---------------------------------------------------------------------------
 
-_automation_tools: list = [save_contact, save_company, log_conversation, log_support_ticket]
+_automation_tools: list = [
+    save_contact, save_company, log_conversation, log_support_ticket,
+    list_prefect_deployments, trigger_prefect_flow, check_prefect_flow_status, list_recent_flow_runs,
+]
 
 if os.getenv("N8N_API_KEY"):
     _automation_tools.append(
@@ -102,16 +111,29 @@ automation_agent = Agent(
     pre_hooks=guardrails,
     skills=_skills,
     instructions=[
-        "You are an automation specialist with access to n8n and Directus CRM.",
+        "You are an automation specialist with access to n8n, Directus CRM, and Prefect.",
         "IMPORTANT: Always USE your tools to execute actions. NEVER just explain.",
         "",
+        "## Prefect (background data flows)",
+        "- list_prefect_deployments: see available flows (scraper, ETL, backup, etc.)",
+        "- trigger_prefect_flow: start a flow with parameters",
+        "- check_prefect_flow_status: check if a flow finished",
+        "- list_recent_flow_runs: see what ran recently",
+        "",
+        "## When user says 'scrapea [URL]':",
+        "1. Call list_prefect_deployments to find the scraper deployment ID",
+        "2. Call trigger_prefect_flow with the deployment ID and URLs as parameters",
+        "3. Report that the flow was triggered",
+        "",
+        "## When user says 'procesa documentos' or 'indexa':",
+        "1. Find the etl-documents or knowledge-indexer deployment",
+        "2. Trigger it with the appropriate parameters",
+        "",
         "## n8n (workflow automation)",
-        "- List, create, execute, activate, and deactivate n8n workflows.",
-        "- When asked to automate something, check if a workflow already exists first.",
+        "- List, create, execute n8n workflows via MCP tools.",
         "",
         "## Directus CRM (direct REST API)",
         "- save_contact, save_company, log_conversation, log_support_ticket",
-        "- All data goes directly to Directus CRM REST API",
         "",
         "## Rules",
         "- ALWAYS call tools first, then report results.",
