@@ -64,8 +64,8 @@ interface WorkflowNode {
 /* ------------------------------------------------------------------ */
 
 const AGENT_META: Record<string, { mcp?: string[]; learning?: string }> = {
-  "automation-agent": { mcp: ["n8n", "Twenty CRM"], learning: "minimal" },
-  "dash": { mcp: ["Twenty CRM"], learning: "full" },
+  "automation-agent": { mcp: ["n8n", "Directus CRM"], learning: "minimal" },
+  "dash": { mcp: ["Directus CRM"], learning: "full" },
   "pal": { learning: "full" },
   "onboarding-agent": { learning: "full" },
   "invoice-agent": { learning: "full" },
@@ -89,7 +89,7 @@ const WORKFLOW_STEPS: Record<string, string[]> = {
 
 const MCP_SERVERS = [
   { id: "mcp-n8n", name: "n8n", type: "Workflow Automation" },
-  { id: "mcp-twenty", name: "Twenty CRM", type: "CRM Database" },
+  { id: "mcp-directus", name: "Directus CRM", type: "CRM Database" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -339,8 +339,8 @@ function buildGraph(
 
   // Connect MCP to agents that use them
   edges.push({ id: "mcp-n8n-auto", source: "automation-agent", target: "mcp-n8n", style: { stroke: "#f59e0b", strokeDasharray: "4 4" }, animated: true });
-  edges.push({ id: "mcp-twenty-auto", source: "automation-agent", target: "mcp-twenty", style: { stroke: "#f59e0b", strokeDasharray: "4 4" }, animated: true });
-  edges.push({ id: "mcp-twenty-dash", source: "dash", target: "mcp-twenty", style: { stroke: "#f59e0b", strokeDasharray: "4 4" }, animated: true });
+  edges.push({ id: "mcp-directus-auto", source: "automation-agent", target: "mcp-directus", style: { stroke: "#f59e0b", strokeDasharray: "4 4" }, animated: true });
+  edges.push({ id: "mcp-directus-dash", source: "dash", target: "mcp-directus", style: { stroke: "#f59e0b", strokeDasharray: "4 4" }, animated: true });
 
   // Workflows at the bottom
   WORKFLOWS.forEach((wf, i) => {

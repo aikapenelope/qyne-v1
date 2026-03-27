@@ -24,7 +24,7 @@ const API_KEYS: ApiKeyConfig[] = [
   { name: "WhatsApp", envVar: "WHATSAPP_ACCESS_TOKEN", description: "Integracion WhatsApp Business API", required: false },
   { name: "GitHub", envVar: "GITHUB_TOKEN", description: "Acceso a repos para Code Review Agent", required: false },
   { name: "N8N", envVar: "N8N_API_KEY", description: "MCP server para workflows de automatizacion", required: false },
-  { name: "Twenty CRM", envVar: "TWENTY_API_KEY", description: "MCP server para CRM", required: false },
+  { name: "Directus CRM", envVar: "DIRECTUS_TOKEN", description: "Directus API token para CRM", required: true },
 ];
 
 export default function SettingsPage() {
