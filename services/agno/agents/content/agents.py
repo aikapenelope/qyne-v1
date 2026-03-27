@@ -15,7 +15,6 @@ from agno.tools.websearch import WebSearchTools
 
 from app.config import TOOL_MODEL, FAST_MODEL, db, SKILLS_DIR
 from app.shared import guardrails, learning
-from app.models import ContentBrief, VideoStoryboard
 
 # ---------------------------------------------------------------------------
 # Skills (loaded from skills/ directory if available)
@@ -65,7 +64,6 @@ trend_scout = Agent(
     retries=0,
     pre_hooks=guardrails,
     skills=_trend_skills,
-    output_model=ContentBrief,
     instructions=[
         "You are a trend researcher for a Spanish-language AI content brand.",
         "Your job is to find the most relevant AI/tech trends RIGHT NOW.",
@@ -113,7 +111,6 @@ scriptwriter = Agent(
     tool_call_limit=5,
     pre_hooks=guardrails,
     skills=_scriptwriter_skills,
-    output_model=VideoStoryboard,
     instructions=[
         "You are a professional scriptwriter for short-form video (Reels/TikTok).",
         "You write in Spanish (Latin America neutral).",
