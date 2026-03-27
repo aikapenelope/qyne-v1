@@ -113,3 +113,9 @@ GROQ_ROUTING_MODEL = Groq(id="openai/gpt-oss-20b")
 
 DIRECTUS_URL = os.getenv("DIRECTUS_URL", "http://directus:8055")
 DIRECTUS_TOKEN = os.getenv("DIRECTUS_TOKEN", "")
+
+# ---------------------------------------------------------------------------
+# Skills directory
+# ---------------------------------------------------------------------------
+
+SKILLS_DIR = Path(__file__).parent.parent / "skills"

@@ -19,10 +19,11 @@ from tools.directus_business import (
     escalate_to_human,
     save_contact,
     save_company,
+    log_conversation,
 )
 
 # Build tool list: REST tools for writes + MCP for reads
-_tools: list = [confirm_payment, log_support_ticket, escalate_to_human, save_contact, save_company]
+_tools: list = [confirm_payment, log_support_ticket, escalate_to_human, save_contact, save_company, log_conversation]
 
 # Directus MCP server: gives agent read/query access to all collections.
 # Uses npx to run the official @directus/content-mcp package via stdio.
