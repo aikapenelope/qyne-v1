@@ -103,6 +103,16 @@ def main():
                 "field": fname, "type": ftype, "meta": {}, "schema": {},
             })
 
+        # Add system tracking fields (date_created, date_updated, user_created, user_updated)
+        system_fields = [
+            {"field": "date_created", "type": "timestamp", "meta": {"special": ["date-created"], "interface": "datetime", "readonly": True, "hidden": True, "width": "half"}, "schema": {}},
+            {"field": "date_updated", "type": "timestamp", "meta": {"special": ["date-updated"], "interface": "datetime", "readonly": True, "hidden": True, "width": "half"}, "schema": {}},
+            {"field": "user_created", "type": "uuid", "meta": {"special": ["user-created"], "interface": "select-dropdown-m2o", "readonly": True, "hidden": True, "width": "half"}, "schema": {}},
+            {"field": "user_updated", "type": "uuid", "meta": {"special": ["user-updated"], "interface": "select-dropdown-m2o", "readonly": True, "hidden": True, "width": "half"}, "schema": {}},
+        ]
+        for sf in system_fields:
+            api(token, "POST", f"/fields/{name}", sf)
+
     # Set static token for API access
     if STATIC_TOKEN:
         code, data = api(token, "GET", "/users/me")
