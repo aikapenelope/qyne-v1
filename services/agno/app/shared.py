@@ -1,7 +1,7 @@
 """
-NEXUS Cerebro — Shared components (guardrails, learning, compression, evals).
+QYNE v1 — Shared components (guardrails, learning, compression).
 
-These are instantiated once and shared across all agents.
+Same as original nexus.py, extracted for modularity.
 """
 
 from agno.compression.manager import CompressionManager
@@ -19,7 +19,7 @@ from agno.learn import (
 from app.config import TOOL_MODEL, FAST_MODEL, learnings_knowledge
 
 # ---------------------------------------------------------------------------
-# Guardrails (applied to all agents and teams)
+# Guardrails (same as original nexus.py)
 # ---------------------------------------------------------------------------
 
 guardrails = [
@@ -31,7 +31,7 @@ guardrails = [
 ]
 
 # ---------------------------------------------------------------------------
-# Learning Machines
+# Learning Machines (same as original nexus.py)
 # ---------------------------------------------------------------------------
 
 # Minimal learning: only learned_knowledge (patterns, solutions).
@@ -53,7 +53,7 @@ learning_full = LearningMachine(
 )
 
 # ---------------------------------------------------------------------------
-# Context Compression
+# Context Compression (same as original nexus.py)
 # ---------------------------------------------------------------------------
 
 compression = CompressionManager(

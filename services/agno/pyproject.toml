@@ -1,17 +1,20 @@
 [project]
-name = "nexus-agno"
+name = "qyne-agno"
 version = "0.1.0"
-description = "NEXUS Cerebro Corporativo — Agno AgentOS"
+description = "QYNE v1 — Agno AgentOS"
 requires-python = ">=3.12"
 
+# Same dependencies as the original requirements.txt from the Agno repo,
+# plus docker SDK for the sandbox tool.
 dependencies = [
-    # Core: Agno with AgentOS runtime (FastAPI, uvicorn, sqlalchemy, tracing)
+    # Core: Agno with AgentOS runtime
     "agno[os]",
 
-    # Database: PostgreSQL + pgvector (production)
-    "agno[postgres]",
-    "psycopg[binary]",
-    "pgvector",
+    # Storage: SQLite + LanceDB
+    "agno[sqlite]",
+    "lancedb",
+    "pylance",
+    "tantivy",
 
     # Models
     "agno[groq]",
@@ -39,39 +42,27 @@ dependencies = [
     "tweepy",
     "firecrawl-py",
     "spider-client",
+    "browserbase",
     "google-genai",
     "lumaai",
 
-    # Tools: MCP protocol (for Directus MCP server)
+    # MCP protocol
     "agno[mcp]",
 
-    # Knowledge: Voyage AI embeddings (pgvector as vector store)
+    # Knowledge: Voyage AI embeddings
     "voyageai",
 
-    # Frontend: AG-UI protocol for CopilotKit
-    "ag-ui-protocol",
-
-    # Document processing
+    # Knowledge: Docling reader (official Agno v2.5.10)
     "docling",
 
-    # Reranker client (connects to local Infinity server)
-    "infinity-client",
+    # AG-UI protocol
+    "ag-ui-protocol",
 
-    # Docker SDK (for DinD sandbox tool)
+    # Docker SDK (for sandbox/micro-PC tool)
     "docker",
 
-    # HTTP client (for Directus REST fallback)
+    # HTTP client (for Directus REST tools)
     "httpx",
-]
-
-[project.optional-dependencies]
-all = [
-    "nexus-agno[default]",
-]
-dev = [
-    "pyright",
-    "ruff",
-    "black",
 ]
 
 [build-system]
