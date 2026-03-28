@@ -103,7 +103,7 @@ function ApprovalCard({
     if (!runId || resolving) return;
     setResolving(true);
     try {
-      await fetch(`${API_URL}/teams/nexus/runs/${runId}/continue`, {
+      await fetch(`${API_URL}/teams/nexus-master/runs/${runId}/continue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
@@ -244,7 +244,65 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  const [sessionId] = useState(() => `nexus-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Session persistence: save/load from localStorage
+  const [sessionId, setSessionId] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qyne-current-session");
+      if (saved) return saved;
+    }
+    const newId = `nexus-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qyne-current-session", newId);
+      // Save to session history
+      const history = JSON.parse(localStorage.getItem("qyne-session-history") || "[]") as Array<{id: string; label: string; ts: number}>;
+      history.unshift({ id: newId, label: "Nueva conversacion", ts: Date.now() });
+      localStorage.setItem("qyne-session-history", JSON.stringify(history.slice(0, 10)));
+    }
+    return newId;
+  });
+
+  // Save session label after first message
+  function updateSessionLabel(label: string) {
+    if (typeof window === "undefined") return;
+    const history = JSON.parse(localStorage.getItem("qyne-session-history") || "[]") as Array<{id: string; label: string; ts: number}>;
+    const idx = history.findIndex((h: {id: string}) => h.id === sessionId);
+    if (idx >= 0) {
+      history[idx].label = label.slice(0, 50);
+      localStorage.setItem("qyne-session-history", JSON.stringify(history));
+    }
+  }
+
+  // Switch to a previous session
+  function switchSession(id: string) {
+    setSessionId(id);
+    setMessages([]);
+    setShowHistory(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qyne-current-session", id);
+    }
+  }
+
+  // Start a new session
+  function newSession() {
+    const newId = `nexus-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setSessionId(newId);
+    setMessages([]);
+    setShowHistory(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qyne-current-session", newId);
+      const history = JSON.parse(localStorage.getItem("qyne-session-history") || "[]") as Array<{id: string; label: string; ts: number}>;
+      history.unshift({ id: newId, label: "Nueva conversacion", ts: Date.now() });
+      localStorage.setItem("qyne-session-history", JSON.stringify(history.slice(0, 10)));
+    }
+  }
+
+  // Get session history
+  function getSessionHistory(): Array<{id: string; label: string; ts: number}> {
+    if (typeof window === "undefined") return [];
+    return JSON.parse(localStorage.getItem("qyne-session-history") || "[]");
+  }
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -288,7 +346,7 @@ export default function ChatPage() {
         formData.append("files", f);
       }
 
-      const response = await fetch(`${API_URL}/teams/nexus/runs`, {
+      const response = await fetch(`${API_URL}/teams/nexus-master/runs`, {
         method: "POST",
         body: formData,
       });
@@ -327,6 +385,11 @@ export default function ChatPage() {
         }
       }
 
+      // Update session label with first user message
+      if (messages.length === 0) {
+        updateSessionLabel(msg);
+      }
+
       setMessages((prev) => [
         ...prev,
         {
@@ -363,11 +426,40 @@ export default function ChatPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <PageHeader title="Chat" badge="NEXUS Master Team">
-        <button onClick={() => setMessages([])} className="p-2 rounded-lg text-zinc-600 hover:text-zinc-400 hover:bg-white/5 transition-colors" title="Nueva conversacion">
-          <RotateCcw size={14} />
+      <PageHeader title="Chat" badge={`Session: ${sessionId.slice(-8)}`}>
+        <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/5 text-[12px] transition-colors" title="Historial">
+          <Clock size={12} /> Historial
+        </button>
+        <button onClick={newSession} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 text-[12px] font-medium hover:bg-emerald-600/20 transition-colors" title="Nueva conversacion">
+          <RotateCcw size={12} /> Nuevo
         </button>
       </PageHeader>
+
+      {/* Session History Panel */}
+      {showHistory && (
+        <div className="border-b border-[#1e1e24] bg-[#0c0c0f] px-6 py-3">
+          <div className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Conversaciones recientes</div>
+          <div className="space-y-1">
+            {getSessionHistory().map((s) => (
+              <button
+                key={s.id}
+                onClick={() => switchSession(s.id)}
+                className={`w-full text-left px-3 py-2 rounded-lg text-[12px] transition-colors ${
+                  s.id === sessionId
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
+                }`}
+              >
+                <div className="truncate">{s.label}</div>
+                <div className="text-[10px] text-zinc-700 mt-0.5">{new Date(s.ts).toLocaleString("es")}</div>
+              </button>
+            ))}
+            {getSessionHistory().length === 0 && (
+              <div className="text-[11px] text-zinc-700 py-2">Sin historial</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
