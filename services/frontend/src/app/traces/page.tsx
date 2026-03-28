@@ -11,9 +11,10 @@ function formatDuration(ms?: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function formatDate(ts?: number): string {
+function formatDate(ts?: number | string): string {
   if (!ts) return "";
-  return new Date(ts * 1000).toLocaleString("es", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const d = typeof ts === "string" ? new Date(ts) : new Date(ts * 1000);
+  return d.toLocaleString("es", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function statusColor(s?: string): string {
@@ -54,9 +55,9 @@ function TraceDetail({ traceId, onBack }: { traceId: string; onBack: () => void 
           {/* Summary cards */}
           <div className="grid grid-cols-4 gap-3">
             {[
-              { label: "Duracion", value: formatDuration(trace.duration_ms), icon: Timer },
-              { label: "Tokens In", value: trace.tokens_in?.toLocaleString() || "--", icon: Hash },
-              { label: "Tokens Out", value: trace.tokens_out?.toLocaleString() || "--", icon: Hash },
+              { label: "Duracion", value: trace.duration || formatDuration(trace.duration_ms), icon: Timer },
+              { label: "Spans", value: trace.total_spans?.toString() || "--", icon: Hash },
+              { label: "Errores", value: trace.error_count?.toString() || "0", icon: Zap },
               { label: "Estado", value: trace.status || "unknown", icon: Zap },
             ].map((s) => (
               <div key={s.label} className="bg-[#0f0f12] border border-[#1e1e24] rounded-xl p-3">
@@ -171,7 +172,7 @@ export default function TracesPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4 shrink-0 ml-3">
-                    {t.duration_ms && <span className="text-[11px] text-zinc-500 flex items-center gap-1"><Timer size={10} />{formatDuration(t.duration_ms)}</span>}
+                    {(t.duration || t.duration_ms) && <span className="text-[11px] text-zinc-500 flex items-center gap-1"><Timer size={10} />{t.duration || formatDuration(t.duration_ms)}</span>}
                     {(t.tokens_in || t.tokens_out) && <span className="text-[10px] text-zinc-600">{((t.tokens_in || 0) + (t.tokens_out || 0)).toLocaleString()} tok</span>}
                     {t.created_at && <span className="text-[10px] text-zinc-700">{formatDate(t.created_at)}</span>}
                     <ChevronRight size={12} className="text-zinc-700 group-hover:text-zinc-500" />

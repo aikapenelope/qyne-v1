@@ -143,6 +143,7 @@ export const getSessionRuns = (sessionId: string) =>
 
 export interface Trace {
   trace_id: string;
+  name?: string;
   agent_id?: string;
   team_id?: string;
   workflow_id?: string;
@@ -151,12 +152,18 @@ export interface Trace {
   input?: string;
   output?: string;
   status?: string;
+  duration?: string;
   duration_ms?: number;
+  start_time?: string;
+  end_time?: string;
+  total_spans?: number;
+  error_count?: number;
+  run_id?: string;
   tokens_in?: number;
   tokens_out?: number;
   model?: string;
   tool_calls?: Array<{ name: string; duration_ms?: number }>;
-  created_at?: number;
+  created_at?: string;
   metadata?: Record<string, unknown>;
 }
 
