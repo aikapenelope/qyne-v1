@@ -222,7 +222,89 @@ def chunk_markdown(page: dict, max_chunk_tokens: int = 500) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Stage 4: DEDUP
+# Stage 4: CLASSIFY (detect topic from URL path and content)
+# ---------------------------------------------------------------------------
+
+
+def _classify_from_path(url: str) -> dict:
+    """Extract topic hierarchy from URL path."""
+    path = urlparse(url).path.strip("/")
+    parts = [p for p in path.split("/") if p]
+
+    category = parts[0] if parts else "home"
+    subcategory = parts[1] if len(parts) > 1 else ""
+    breadcrumb = " > ".join(parts) if parts else "Home"
+
+    return {
+        "category": category,
+        "subcategory": subcategory,
+        "breadcrumb": breadcrumb,
+        "depth": len(parts),
+    }
+
+
+TOPIC_KEYWORDS = {
+    "api": "API Reference",
+    "guide": "Guides",
+    "tutorial": "Tutorials",
+    "reference": "API Reference",
+    "getting-started": "Getting Started",
+    "quickstart": "Getting Started",
+    "install": "Installation",
+    "setup": "Installation",
+    "deploy": "Deployment",
+    "config": "Configuration",
+    "auth": "Authentication",
+    "security": "Security",
+    "pricing": "Pricing",
+    "blog": "Blog",
+    "changelog": "Changelog",
+    "faq": "FAQ",
+    "about": "About",
+    "contact": "Contact",
+    "docs": "Documentation",
+    "agents": "Agents",
+    "tools": "Tools",
+    "models": "Models",
+    "knowledge": "Knowledge",
+    "memory": "Memory",
+    "workflows": "Workflows",
+    "teams": "Teams",
+}
+
+
+@task
+def classify_page(page: dict) -> dict:
+    """Classify page by topic using URL path and content keywords."""
+    url_info = _classify_from_path(page["url"])
+
+    # Detect topic from URL path segments
+    path_lower = urlparse(page["url"]).path.lower()
+    topic = "General"
+    for keyword, label in TOPIC_KEYWORDS.items():
+        if keyword in path_lower:
+            topic = label
+            break
+
+    # Detect topic from first heading if URL didn't match
+    if topic == "General" and page.get("content_markdown"):
+        first_line = page["content_markdown"].split("\n")[0].lower()
+        for keyword, label in TOPIC_KEYWORDS.items():
+            if keyword in first_line:
+                topic = label
+                break
+
+    page["topic"] = topic
+    page["category"] = url_info["category"]
+    page["subcategory"] = url_info["subcategory"]
+    page["breadcrumb"] = url_info["breadcrumb"]
+    page["url_depth"] = url_info["depth"]
+
+    return page
+
+
+# ---------------------------------------------------------------------------
+# Stage 5: DEDUP
 # ---------------------------------------------------------------------------
 
 
@@ -246,7 +328,7 @@ def is_page_duplicate(url: str) -> bool:
 
 @task(retries=2, retry_delay_seconds=10)
 def store_page(page: dict, site_name: str) -> int | None:
-    """Store crawled page in Directus documents collection."""
+    """Store crawled page in Directus documents collection with classification."""
     if not DIRECTUS_TOKEN:
         return None
 
@@ -256,7 +338,7 @@ def store_page(page: dict, site_name: str) -> int | None:
             "title": page["title"][:500],
             "content": page["content_markdown"][:50000],
             "source_file": page["url"],
-            "status": "crawled",
+            "status": f"crawled:{page.get('topic', 'General')}:{page.get('category', '')}",
         },
         headers=HEADERS,
         timeout=10,
@@ -298,6 +380,9 @@ def index_chunks(page: dict) -> int:
                     "title": page["title"],
                     "source": page["url"],
                     "chunk_index": chunk["index"],
+                    "topic": page.get("topic", "General"),
+                    "category": page.get("category", ""),
+                    "breadcrumb": page.get("breadcrumb", ""),
                 },
             )
             indexed += 1
@@ -377,6 +462,9 @@ async def website_crawler(
 
         # Stage 3: Chunk for RAG
         page = chunk_markdown(page, max_chunk_tokens)
+
+        # Stage 4: Classify by topic
+        page = classify_page(page)
 
         # Stage 5: Store in Directus
         doc_id = store_page(page, domain)
