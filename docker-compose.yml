@@ -170,6 +170,7 @@ services:
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
       WHATSAPP_WEBHOOK_URL: ${WHATSAPP_WEBHOOK_URL:-}
       WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      N8N_API_KEY: ${N8N_API_KEY:-}
     volumes:
       - agno-data:/app/data
       # Docker socket REMOVED for security (OWASP LLM04).
