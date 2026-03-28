@@ -5,8 +5,7 @@
  * Connects to Directus REST API via the Next.js server (SSR) or client-side.
  */
 
-const DIRECTUS_URL =
-  process.env.NEXT_PUBLIC_DIRECTUS_URL || "http://directus:8055";
+const DIRECTUS_URL = "/api/proxy/directus";
 const DIRECTUS_TOKEN = process.env.DIRECTUS_TOKEN || "";
 
 /* ------------------------------------------------------------------ */
@@ -20,7 +19,6 @@ async function directusRequest<T>(
   const res = await fetch(`${DIRECTUS_URL}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${DIRECTUS_TOKEN}`,
       "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
@@ -198,10 +196,10 @@ export interface Note {
 }
 
 export const listNotes = async (limit = 50): Promise<Note[]> => {
-  const resp = await directusRequest<{ data: Note[] }>(
+  const resp = await directusRequest<{ data: Array<Record<string, unknown>> }>(
     `/items/conversations?limit=${limit}&sort=-date_created&fields=id,channel,raw_message,intent,date_created`
   );
-  return (resp.data || []).map((n: Record<string, unknown>) => ({
+  return (resp.data || []).map((n) => ({
     id: n.id as number,
     title: (n.intent as string) || (n.channel as string) || "Conversacion",
     body: (n.raw_message as string) || "",
