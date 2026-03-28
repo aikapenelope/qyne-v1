@@ -128,9 +128,9 @@ function CollectionFolder({ col, data, expanded, onToggle }: {
                         </span>
                       ))}
                   </div>
-                  {item["date_created"] && (
+                  {typeof item["date_created"] === "string" && (
                     <span className="text-[9px] text-zinc-700 mt-1 block">
-                      {new Date(String(item["date_created"])).toLocaleString("es")}
+                      {new Date(item["date_created"]).toLocaleString("es")}
                     </span>
                   )}
                 </div>
