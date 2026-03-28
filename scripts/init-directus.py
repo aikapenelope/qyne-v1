@@ -77,6 +77,15 @@ COLLECTIONS = {
     "events": [
         "type:string", "payload:json",
     ],
+    "properties": [
+        "title:string", "description:text", "price:float", "currency:string",
+        "price_per_m2:float", "price_category:string",
+        "location:string", "city:string", "country:string",
+        "latitude:float", "longitude:float",
+        "bedrooms:integer", "bathrooms:integer", "area_m2:float",
+        "property_type:string", "images:json", "features:json",
+        "url:string", "source:string", "status:string", "scraped_at:timestamp",
+    ],
 }
 
 
