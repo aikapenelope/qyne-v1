@@ -14,6 +14,7 @@ import {
   Smartphone,
   Database,
   FolderOpen,
+  Columns,
   Sparkles,
   History,
   Network,
@@ -34,6 +35,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: BarChart3 },
+  { href: "/workspace", label: "Workspace", icon: Columns },
   { href: "/topology", label: "Topologia", icon: Network },
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/whatsapp", label: "WhatsApp", icon: Smartphone },
