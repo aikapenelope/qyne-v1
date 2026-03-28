@@ -160,10 +160,14 @@ export interface Trace {
   metadata?: Record<string, unknown>;
 }
 
-export const listTraces = (limit = 50) =>
-  request<Trace[]>(`/traces?limit=${limit}`);
-export const getTrace = (traceId: string) =>
-  request<Trace>(`/traces/${encodeURIComponent(traceId)}`);
+export const listTraces = async (limit = 50): Promise<Trace[]> => {
+  const resp = await request<{ data: Trace[] }>(`/traces?limit=${limit}`);
+  return (resp as { data: Trace[] }).data || (resp as unknown as Trace[]);
+};
+export const getTrace = async (traceId: string): Promise<Trace> => {
+  const resp = await request<{ data: Trace }>(`/traces/${encodeURIComponent(traceId)}`);
+  return (resp as { data: Trace }).data || (resp as unknown as Trace);
+};
 export const searchTraces = (query: string) =>
   request<Trace[]>(`/traces/search?query=${encodeURIComponent(query)}`);
 

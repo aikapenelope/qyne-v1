@@ -19,7 +19,7 @@ import remarkGfm from "remark-gfm";
 import PageHeader from "@/components/layout/page-header";
 import { runTeam } from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = "/api/proxy/agno";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
