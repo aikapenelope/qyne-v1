@@ -182,7 +182,7 @@ def check_duplicate(url: str) -> bool:
     if not DIRECTUS_TOKEN or not url:
         return False
     resp = httpx.get(
-        f"{DIRECTUS_URL}/items/scraped_data?filter[url][_eq]={url}&fields=id&limit=1",
+        f"{DIRECTUS_URL}/items/properties?filter[url][_eq]={url}&fields=id&limit=1",
         headers=HEADERS,
         timeout=10,
     )
@@ -220,22 +220,38 @@ def enrich_item(item: dict) -> dict:
 
 @task(retries=2, retry_delay_seconds=10)
 def store_item(item: dict) -> dict:
-    """Stage 7: Write to Directus."""
+    """Stage 7: Write to Directus properties collection as PWA-ready JSON."""
     if not DIRECTUS_TOKEN:
         return {"status": "skipped"}
-    # Convert image_urls list to JSON string for Directus
-    store_data = {**item}
-    if "image_urls" in store_data:
-        store_data["content"] = json.dumps(store_data.pop("image_urls"))
-    # Remove fields not in scraped_data collection
-    for key in ["price_per_m2", "price_category", "bedrooms", "bathrooms",
-                 "area_m2", "country", "scraped_at", "currency", "price",
-                 "location", "status", "image_urls"]:
-        store_data.pop(key, None)
+
+    # Build the property record — ready for direct UI consumption
+    property_data = {
+        "title": item.get("title", ""),
+        "description": item.get("description", ""),
+        "price": item.get("price"),
+        "currency": item.get("currency", "USD"),
+        "price_per_m2": item.get("price_per_m2"),
+        "price_category": item.get("price_category", ""),
+        "location": item.get("location", ""),
+        "city": item.get("city", ""),
+        "country": item.get("country", ""),
+        "bedrooms": item.get("bedrooms"),
+        "bathrooms": item.get("bathrooms"),
+        "area_m2": item.get("area_m2"),
+        "property_type": item.get("property_type", ""),
+        # JSON fields — stored as native JSON in PostgreSQL
+        # A PWA reads these directly from the API response
+        "images": item.get("image_urls", []),
+        "features": item.get("features", []),
+        "url": item.get("url", ""),
+        "source": item.get("source", ""),
+        "status": item.get("status", "scraped"),
+        "scraped_at": item.get("scraped_at"),
+    }
 
     resp = httpx.post(
-        f"{DIRECTUS_URL}/items/scraped_data",
-        json=store_data,
+        f"{DIRECTUS_URL}/items/properties",
+        json=property_data,
         headers=HEADERS,
         timeout=10,
     )
