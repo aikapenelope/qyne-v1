@@ -121,6 +121,69 @@ def _extract_area(text: str) -> float | None:
 CURRENCY_MAP = {"$": "USD", "Bs": "VES", "Bs.": "VES", "US$": "USD", "COP$": "COP"}
 
 
+def _extract_image_urls(raw: dict) -> list[str]:
+    """Extract all image URLs from a raw item."""
+    urls = []
+    if raw.get("image_url"):
+        urls.append(raw["image_url"])
+    # Some sites have multiple image fields
+    for key in ("image_url_2", "image_url_3", "gallery"):
+        if raw.get(key):
+            if isinstance(raw[key], list):
+                urls.extend(raw[key])
+            else:
+                urls.append(raw[key])
+    return [u for u in urls if u and u.startswith("http")]
+
+
+def _extract_features(attrs_text: str) -> list[str]:
+    """Extract property features from attributes text."""
+    if not attrs_text:
+        return []
+    features = []
+    keywords = {
+        "piscina": "piscina", "pool": "piscina",
+        "estacionamiento": "estacionamiento", "parking": "estacionamiento",
+        "jardin": "jardin", "garden": "jardin",
+        "seguridad": "seguridad", "vigilancia": "seguridad",
+        "ascensor": "ascensor", "elevator": "ascensor",
+        "gimnasio": "gimnasio", "gym": "gimnasio",
+        "terraza": "terraza", "balcon": "balcon",
+        "amoblado": "amoblado", "furnished": "amoblado",
+    }
+    text_lower = attrs_text.lower()
+    for keyword, feature in keywords.items():
+        if keyword in text_lower and feature not in features:
+            features.append(feature)
+    return features
+
+
+def _detect_property_type(title: str) -> str:
+    """Detect property type from title."""
+    title_lower = (title or "").lower()
+    types = {
+        "apartamento": "apartment", "apto": "apartment", "apartment": "apartment",
+        "casa": "house", "house": "house", "townhouse": "house",
+        "terreno": "land", "lote": "land", "parcela": "land",
+        "oficina": "office", "local": "commercial",
+        "penthouse": "penthouse", "ph": "penthouse",
+        "finca": "farm", "hacienda": "farm",
+    }
+    for keyword, ptype in types.items():
+        if keyword in title_lower:
+            return ptype
+    return "other"
+
+
+def extract_city(location: str) -> str:
+    """Extract city from location string."""
+    if not location:
+        return ""
+    # Take first part before comma (usually city)
+    parts = location.split(",")
+    return parts[0].strip() if parts else location.strip()
+
+
 @task
 def normalize_item(raw: dict, site_name: str) -> dict:
     """Stage 3: Clean and normalize extracted data."""
@@ -135,15 +198,24 @@ def normalize_item(raw: dict, site_name: str) -> dict:
 
     return {
         "title": (raw.get("title") or "").strip()[:500],
+        "description": (raw.get("description") or raw.get("title") or "").strip(),
         "price": _parse_price(raw.get("price_raw", "")),
         "currency": CURRENCY_MAP.get((raw.get("currency_symbol") or "").strip(), config["currency_default"]),
         "location": (raw.get("location") or "").strip(),
+        "city": extract_city(raw.get("location", "")),
         "country": config["country"],
         "url": url,
-        "image_urls": [raw["image_url"]] if raw.get("image_url") else [],
+        # Images stored as objects with metadata for PWA rendering
+        "image_urls": [
+            {"url": img_url, "alt": (raw.get("title") or "")[:80], "order": i, "source": "original"}
+            for i, img_url in enumerate(_extract_image_urls(raw))
+            if img_url
+        ],
+        "features": _extract_features(attrs),
         "bedrooms": _extract_number(attrs, "habitaci|dormitorio|cuarto"),
         "bathrooms": _extract_number(attrs, "ba[ñn]o"),
         "area_m2": _extract_area(attrs),
+        "property_type": _detect_property_type(raw.get("title", "")),
         "source": site_name,
         "scraped_at": datetime.utcnow().isoformat(),
     }
