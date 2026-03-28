@@ -5,8 +5,7 @@
  * Connects to Directus REST API via the Next.js server (SSR) or client-side.
  */
 
-const DIRECTUS_URL =
-  process.env.NEXT_PUBLIC_DIRECTUS_URL || "http://directus:8055";
+const DIRECTUS_URL = "/api/proxy/directus";
 const DIRECTUS_TOKEN = process.env.DIRECTUS_TOKEN || "";
 
 /* ------------------------------------------------------------------ */
@@ -20,7 +19,6 @@ async function directusRequest<T>(
   const res = await fetch(`${DIRECTUS_URL}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${DIRECTUS_TOKEN}`,
       "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
