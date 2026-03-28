@@ -103,7 +103,7 @@ function ApprovalCard({
     if (!runId || resolving) return;
     setResolving(true);
     try {
-      await fetch(`${API_URL}/teams/nexus/runs/${runId}/continue`, {
+      await fetch(`${API_URL}/teams/nexus-master/runs/${runId}/continue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
@@ -288,7 +288,7 @@ export default function ChatPage() {
         formData.append("files", f);
       }
 
-      const response = await fetch(`${API_URL}/teams/nexus/runs`, {
+      const response = await fetch(`${API_URL}/teams/nexus-master/runs`, {
         method: "POST",
         body: formData,
       });

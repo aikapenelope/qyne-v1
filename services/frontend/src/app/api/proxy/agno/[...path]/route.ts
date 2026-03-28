@@ -18,16 +18,31 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const path = req.nextUrl.pathname.replace("/api/proxy/agno", "");
-  const body = await req.text();
-  const ct = req.headers.get("content-type") || "application/json";
+  const contentType = req.headers.get("content-type") || "";
+
   try {
+    // Pass through the request body as-is (supports JSON and FormData)
+    const body = await req.arrayBuffer();
+    const headers: Record<string, string> = {};
+    if (contentType) {
+      headers["Content-Type"] = contentType;
+    }
+
     const res = await fetch(`${AGNO_URL}${path}`, {
       method: "POST",
-      headers: { "Content-Type": ct },
-      body,
+      headers,
+      body: Buffer.from(body),
     });
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+
+    const text = await res.text();
+    try {
+      return NextResponse.json(JSON.parse(text), { status: res.status });
+    } catch {
+      return new NextResponse(text, {
+        status: res.status,
+        headers: { "Content-Type": res.headers.get("content-type") || "text/plain" },
+      });
+    }
   } catch {
     return NextResponse.json({ error: "Agno unavailable" }, { status: 502 });
   }
