@@ -56,8 +56,8 @@ function TraceDetail({ traceId, onBack }: { traceId: string; onBack: () => void 
           <div className="grid grid-cols-4 gap-3">
             {[
               { label: "Duracion", value: trace.duration || formatDuration(trace.duration_ms), icon: Timer },
-              { label: "Spans", value: trace.total_spans?.toString() || "--", icon: Hash },
-              { label: "Errores", value: trace.error_count?.toString() || "0", icon: Zap },
+              { label: "Tokens In", value: trace.tokens_in?.toLocaleString() || "--", icon: Hash },
+              { label: "Tokens Out", value: trace.tokens_out?.toLocaleString() || "--", icon: Hash },
               { label: "Estado", value: trace.status || "unknown", icon: Zap },
             ].map((s) => (
               <div key={s.label} className="bg-[#0f0f12] border border-[#1e1e24] rounded-xl p-3">

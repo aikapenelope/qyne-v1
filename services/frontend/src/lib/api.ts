@@ -165,6 +165,35 @@ export interface Trace {
   tool_calls?: Array<{ name: string; duration_ms?: number }>;
   created_at?: string;
   metadata?: Record<string, unknown>;
+  tree?: unknown[];
+}
+
+// Extract tokens recursively from trace tree
+function extractTokens(obj: unknown): { input: number; output: number } {
+  let input = 0;
+  let output = 0;
+  if (obj && typeof obj === "object") {
+    const o = obj as Record<string, unknown>;
+    input += (typeof o.input_tokens === "number" ? o.input_tokens : 0);
+    output += (typeof o.output_tokens === "number" ? o.output_tokens : 0);
+    input += (typeof o.total_input_tokens === "number" ? o.total_input_tokens : 0);
+    output += (typeof o.total_output_tokens === "number" ? o.total_output_tokens : 0);
+    for (const v of Object.values(o)) {
+      if (v && typeof v === "object") {
+        const sub = extractTokens(v);
+        input += sub.input;
+        output += sub.output;
+      }
+    }
+  }
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      const sub = extractTokens(item);
+      input += sub.input;
+      output += sub.output;
+    }
+  }
+  return { input, output };
 }
 
 export const listTraces = async (limit = 50): Promise<Trace[]> => {
@@ -173,7 +202,14 @@ export const listTraces = async (limit = 50): Promise<Trace[]> => {
 };
 export const getTrace = async (traceId: string): Promise<Trace> => {
   const resp = await request<{ data: Trace }>(`/traces/${encodeURIComponent(traceId)}`);
-  return (resp as { data: Trace }).data || (resp as unknown as Trace);
+  const trace = (resp as { data: Trace }).data || (resp as unknown as Trace);
+  // Extract tokens from tree if not at top level
+  if (trace.tree && (!trace.tokens_in || !trace.tokens_out)) {
+    const tokens = extractTokens(trace.tree);
+    trace.tokens_in = tokens.input;
+    trace.tokens_out = tokens.output;
+  }
+  return trace;
 };
 export const searchTraces = (query: string) =>
   request<Trace[]>(`/traces/search?query=${encodeURIComponent(query)}`);
