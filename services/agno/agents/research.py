@@ -38,3 +38,7 @@ research_agent = Agent(
     followup_model=FOLLOWUP_MODEL,
     compression_manager=compression,
 )
+
+# Chat export tools (web chat only)
+from tools.chat_export import save_chat_to_directus, save_chat_to_knowledge
+research_agent.tools.extend([save_chat_to_directus, save_chat_to_knowledge])
