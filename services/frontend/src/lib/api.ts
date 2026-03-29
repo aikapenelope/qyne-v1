@@ -168,22 +168,26 @@ export interface Trace {
   tree?: unknown[];
 }
 
-// Extract tokens recursively from trace tree
+// Extract tokens from trace tree — only count leaf-level metrics to avoid double-counting
 function extractTokens(obj: unknown): { input: number; output: number } {
   let input = 0;
   let output = 0;
-  if (obj && typeof obj === "object") {
+  if (obj && typeof obj === "object" && !Array.isArray(obj)) {
     const o = obj as Record<string, unknown>;
-    input += (typeof o.input_tokens === "number" ? o.input_tokens : 0);
-    output += (typeof o.output_tokens === "number" ? o.output_tokens : 0);
-    input += (typeof o.total_input_tokens === "number" ? o.total_input_tokens : 0);
-    output += (typeof o.total_output_tokens === "number" ? o.total_output_tokens : 0);
-    for (const v of Object.values(o)) {
-      if (v && typeof v === "object") {
-        const sub = extractTokens(v);
+    const spans = o.spans as unknown[] | undefined;
+    const metadata = o.metadata as Record<string, unknown> | undefined;
+
+    // If this node has child spans, recurse into them (don't count this node's tokens)
+    if (Array.isArray(spans) && spans.length > 0) {
+      for (const span of spans) {
+        const sub = extractTokens(span);
         input += sub.input;
         output += sub.output;
       }
+    } else if (metadata) {
+      // Leaf node: count tokens from metadata
+      input += (typeof metadata.input_tokens === "number" ? metadata.input_tokens : 0);
+      output += (typeof metadata.output_tokens === "number" ? metadata.output_tokens : 0);
     }
   }
   if (Array.isArray(obj)) {
