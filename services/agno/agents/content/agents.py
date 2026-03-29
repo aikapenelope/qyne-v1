@@ -222,3 +222,10 @@ analytics_agent = Agent(
     add_datetime_to_context=True,
     markdown=True,
 )
+
+# Chat export tools available to all content agents
+from tools.chat_export import save_chat_to_directus, save_chat_to_knowledge
+for _agent in [trend_scout, scriptwriter, creative_director, analytics_agent]:
+    if _agent.tools is None:
+        _agent.tools = []
+    _agent.tools.extend([save_chat_to_directus, save_chat_to_knowledge])

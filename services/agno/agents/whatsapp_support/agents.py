@@ -17,6 +17,7 @@ from tools.directus_business import (
     save_company,
     log_conversation,
 )
+from tools.chat_export import save_chat_to_directus, save_chat_to_knowledge
 
 # ---------------------------------------------------------------------------
 # Skills per product
@@ -52,6 +53,8 @@ _support_tools = [
     save_contact,
     save_company,
     log_conversation,
+    save_chat_to_directus,
+    save_chat_to_knowledge,
 ]
 
 # Shared instructions

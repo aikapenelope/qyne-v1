@@ -40,3 +40,9 @@ knowledge_agent = Agent(
     num_followups=3,
     followup_model=FOLLOWUP_MODEL,
 )
+
+# Chat export tools
+from tools.chat_export import save_chat_to_directus, save_chat_to_knowledge
+if knowledge_agent.tools is None:
+    knowledge_agent.tools = []
+knowledge_agent.tools.extend([save_chat_to_directus, save_chat_to_knowledge])
