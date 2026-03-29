@@ -32,6 +32,7 @@ from tools.prefect_api import (
     check_prefect_flow_status,
     list_recent_flow_runs,
 )
+from tools.chat_export import save_chat_to_directus, save_chat_to_knowledge
 
 # ---------------------------------------------------------------------------
 # Skills
@@ -61,6 +62,7 @@ if SKILLS_DIR.exists():
 _automation_tools: list = [
     save_contact, save_company, log_conversation, log_support_ticket,
     list_prefect_deployments, trigger_prefect_flow, check_prefect_flow_status, list_recent_flow_runs,
+    save_chat_to_directus, save_chat_to_knowledge,
 ]
 
 if os.getenv("N8N_API_KEY"):
