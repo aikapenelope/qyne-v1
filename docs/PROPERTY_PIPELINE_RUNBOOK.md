@@ -92,11 +92,25 @@ can be null but must exist in the record.
 
 | Value | Matches |
 |-------|---------|
-| `apartment` | apartamento, apto, penthouse, ph |
-| `house` | casa, townhouse, quinta |
-| `land` | terreno, lote, parcela, finca |
-| `commercial` | comercial, local, oficina, galpon, negocio, industrial |
-| `other` | anything not matched above |
+| `apartamento` | apartamento, apto |
+| `casa` | casa |
+| `townhouse` | townhouse, town house |
+| `penthouse` | penthouse, ph |
+| `anexo` | anexo |
+| `local_comercial` | local, local comercial |
+| `oficina` | oficina |
+| `galpon` | galpon, deposito |
+| `edificio` | edificio |
+| `negocio` | negocio, negocios, negocios y empresas |
+| `terreno` | terreno, lote |
+| `hacienda_finca` | finca, hacienda |
+| `hotel_resort` | hotel, resort, posada |
+| `accion_club` | club, club campestre, accion de club |
+| `parcela_cementerio` | parcela de cementerio |
+| `industrial` | industrial |
+| `estacionamiento` | estacionamiento |
+| `consultorio_medico` | consultorio, consultorio medico |
+| `other` | anything not matched |
 
 ## Price Categories
 
@@ -198,9 +212,50 @@ Keys in snake_case Spanish. Values as strings or numbers.
 
 ## Known Issues to Fix
 
-1. **Title not cleaned**: Still contains RAH code and line breaks
-2. **Bathrooms**: Only captures half baths, not total
-3. **property_type**: "negocios" maps to "other" instead of "commercial"
-4. **Features**: Still have # and ? symbols
-5. **price_category**: Doesn't distinguish venta vs alquiler ranges
-6. **construction_details keys**: Not in snake_case
+1. ~~**Title not cleaned**~~: FIXED — removes RAH codes, line breaks, prices
+2. ~~**Bathrooms**~~: FIXED — captures total, full, and half separately
+3. ~~**property_type**~~: FIXED — 18 categories matching Venezuelan market
+4. ~~**Features**~~: FIXED — strips symbols, filters negatives
+5. ~~**price_category**~~: FIXED — separate ranges for venta vs alquiler
+6. ~~**construction_details keys**~~: FIXED — snake_case, numeric conversion
+
+## Cross-Source Dedup Strategy
+
+MercadoLibre is an aggregator. The same property appears there AND on
+specialized sites (RentAHouse, TuInmueble, etc.). Specialized sites are
+the source of truth (more data, photos, realtor info).
+
+### Source Priority
+
+| Priority | Source | Why |
+|----------|--------|-----|
+| 1 (highest) | rentahouse_ve | Full data, realtor, all photos |
+| 2 | tuinmueble_ve | Good data, realtor info |
+| 3 (lowest) | mercadolibre_ve | Basic data, no realtor |
+
+### Dedup Rules
+
+1. Scrape specialized sites FIRST
+2. Scrape MercadoLibre SECOND
+3. For each ML property, check if a match exists from a higher-priority source
+4. Match criteria (80% threshold):
+   - Same city + neighborhood
+   - Price within 10% range
+   - Area within 15% range
+   - Same property_type
+5. If match found: mark ML property as `status: "duplicate_ml"` with
+   `primary_source_id` pointing to the specialized site property
+6. If no match: keep ML property as unique
+
+### Fields for Matching
+
+```sql
+-- Pseudo-query for finding matches
+SELECT id FROM properties
+WHERE source != 'mercadolibre_ve'
+  AND city = :ml_city
+  AND property_type = :ml_type
+  AND ABS(price - :ml_price) / price < 0.10
+  AND ABS(area_m2 - :ml_area) / area_m2 < 0.15
+LIMIT 1
+```
