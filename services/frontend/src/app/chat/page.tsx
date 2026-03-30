@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent, useCallback } from "react";
 import {
   Send,
   Paperclip,
@@ -13,6 +13,8 @@ import {
   Loader2,
   AlertTriangle,
   X,
+  MessageSquare,
+  Plus,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -42,6 +44,12 @@ interface Message {
   runId?: string;
   requirements?: ApprovalReq[];
   files?: string[];
+}
+
+interface SessionEntry {
+  id: string;
+  label: string;
+  ts: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -84,18 +92,10 @@ function EmptyState({ onSelect }: { onSelect: (t: string) => void }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Approval card (inline in chat)                                      */
+/* Approval card                                                       */
 /* ------------------------------------------------------------------ */
 
-function ApprovalCard({
-  requirements,
-  runId,
-  onResolved,
-}: {
-  requirements: ApprovalReq[];
-  runId?: string;
-  onResolved: () => void;
-}) {
+function ApprovalCard({ requirements, runId, onResolved }: { requirements: ApprovalReq[]; runId?: string; onResolved: () => void }) {
   const [resolving, setResolving] = useState(false);
   const [resolved, setResolved] = useState<"approved" | "rejected" | null>(null);
 
@@ -194,13 +194,9 @@ function MessageBubble({ msg, onFollowup }: { msg: Message; onFollowup: (t: stri
         <div className="agent-response text-[14px] text-zinc-300 leading-relaxed">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
         </div>
-
-        {/* Approval card */}
         {msg.isPaused && msg.requirements && msg.requirements.length > 0 && (
           <ApprovalCard requirements={msg.requirements} runId={msg.runId} onResolved={() => {}} />
         )}
-
-        {/* Followup suggestions */}
         {msg.followups && msg.followups.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pt-2">
             {msg.followups.map((f) => (
@@ -236,6 +232,64 @@ function LoadingIndicator() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Session sidebar                                                     */
+/* ------------------------------------------------------------------ */
+
+function SessionSidebar({
+  sessions,
+  currentId,
+  onSelect,
+  onNew,
+  loadingSession,
+}: {
+  sessions: SessionEntry[];
+  currentId: string;
+  onSelect: (id: string) => void;
+  onNew: () => void;
+  loadingSession: boolean;
+}) {
+  return (
+    <div className="w-[240px] border-r border-[#1e1e24] flex flex-col bg-[#0a0a0d] shrink-0">
+      <div className="p-3 border-b border-[#1e1e24]">
+        <button
+          onClick={onNew}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 text-[12px] font-medium hover:bg-emerald-600/20 transition-colors"
+        >
+          <Plus size={12} /> Nueva conversacion
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+        {sessions.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onSelect(s.id)}
+            disabled={loadingSession}
+            className={`w-full text-left px-3 py-2.5 rounded-lg text-[12px] transition-colors ${
+              s.id === currentId
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <MessageSquare size={11} className="shrink-0" />
+              <span className="truncate flex-1">{s.label}</span>
+            </div>
+            <div className="text-[10px] text-zinc-700 mt-1 pl-[19px]">
+              {new Date(s.ts).toLocaleDateString("es", { day: "2-digit", month: "short" })}
+              {" "}
+              {new Date(s.ts).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+            </div>
+          </button>
+        ))}
+        {sessions.length === 0 && (
+          <div className="text-[11px] text-zinc-700 text-center py-6">Sin conversaciones</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Chat page                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -243,10 +297,10 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
 
-  // Session persistence: save/load from localStorage
+  // Session persistence
   const [sessionId, setSessionId] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("qyne-current-session");
@@ -255,54 +309,104 @@ export default function ChatPage() {
     const newId = `nexus-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     if (typeof window !== "undefined") {
       localStorage.setItem("qyne-current-session", newId);
-      // Save to session history
-      const history = JSON.parse(localStorage.getItem("qyne-session-history") || "[]") as Array<{id: string; label: string; ts: number}>;
+      const history = JSON.parse(localStorage.getItem("qyne-session-history") || "[]") as SessionEntry[];
       history.unshift({ id: newId, label: "Nueva conversacion", ts: Date.now() });
       localStorage.setItem("qyne-session-history", JSON.stringify(history.slice(0, 10)));
     }
     return newId;
   });
 
-  // Save session label after first message
+  const [sessions, setSessions] = useState<SessionEntry[]>(() => {
+    if (typeof window !== "undefined") {
+      return JSON.parse(localStorage.getItem("qyne-session-history") || "[]");
+    }
+    return [];
+  });
+
   function updateSessionLabel(label: string) {
     if (typeof window === "undefined") return;
-    const history = JSON.parse(localStorage.getItem("qyne-session-history") || "[]") as Array<{id: string; label: string; ts: number}>;
-    const idx = history.findIndex((h: {id: string}) => h.id === sessionId);
+    const history = JSON.parse(localStorage.getItem("qyne-session-history") || "[]") as SessionEntry[];
+    const idx = history.findIndex((h) => h.id === sessionId);
     if (idx >= 0) {
       history[idx].label = label.slice(0, 50);
       localStorage.setItem("qyne-session-history", JSON.stringify(history));
+      setSessions([...history]);
     }
   }
 
-  // Switch to a previous session
-  function switchSession(id: string) {
+  // Load conversation from Agno when switching sessions
+  const loadSession = useCallback(async (id: string) => {
     setSessionId(id);
     setMessages([]);
-    setShowHistory(false);
+    setLoadingSession(true);
     if (typeof window !== "undefined") {
       localStorage.setItem("qyne-current-session", id);
     }
-  }
 
-  // Start a new session
+    try {
+      const resp = await fetch(`${API_URL}/teams/nexus-master/runs?session_id=${encodeURIComponent(id)}&limit=20`);
+      if (!resp.ok) { setLoadingSession(false); return; }
+      const runs = await resp.json();
+
+      if (!Array.isArray(runs) || runs.length === 0) { setLoadingSession(false); return; }
+
+      // Convert runs to messages (each run has run_input + content)
+      const loaded: Message[] = [];
+      // Runs come newest-first, reverse for chronological order
+      const sorted = [...runs].reverse();
+
+      for (const run of sorted) {
+        const userText = run.run_input || run.input || "";
+        const agentText = typeof run.content === "string" ? run.content : (run.content?.text || "");
+        const ts = run.created_at ? new Date(run.created_at) : new Date();
+
+        if (userText) {
+          loaded.push({
+            id: `h-u-${run.run_id}`,
+            role: "user",
+            content: userText,
+            timestamp: ts,
+          });
+        }
+        if (agentText) {
+          loaded.push({
+            id: `h-a-${run.run_id}`,
+            role: "assistant",
+            content: agentText,
+            agent: run.agent_name || "NEXUS",
+            timestamp: ts,
+          });
+        }
+      }
+
+      setMessages(loaded);
+    } catch {
+      // Failed to load, show empty
+    } finally {
+      setLoadingSession(false);
+    }
+  }, []);
+
+  // Load current session on mount
+  useEffect(() => {
+    loadSession(sessionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function newSession() {
     const newId = `nexus-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setSessionId(newId);
     setMessages([]);
-    setShowHistory(false);
     if (typeof window !== "undefined") {
       localStorage.setItem("qyne-current-session", newId);
-      const history = JSON.parse(localStorage.getItem("qyne-session-history") || "[]") as Array<{id: string; label: string; ts: number}>;
+      const history = JSON.parse(localStorage.getItem("qyne-session-history") || "[]") as SessionEntry[];
       history.unshift({ id: newId, label: "Nueva conversacion", ts: Date.now() });
-      localStorage.setItem("qyne-session-history", JSON.stringify(history.slice(0, 10)));
+      const trimmed = history.slice(0, 10);
+      localStorage.setItem("qyne-session-history", JSON.stringify(trimmed));
+      setSessions(trimmed);
     }
   }
 
-  // Get session history
-  function getSessionHistory(): Array<{id: string; label: string; ts: number}> {
-    if (typeof window === "undefined") return [];
-    return JSON.parse(localStorage.getItem("qyne-session-history") || "[]");
-  }
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -336,7 +440,6 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      // Build FormData with files
       const formData = new FormData();
       formData.append("message", msg);
       formData.append("stream", "false");
@@ -359,7 +462,6 @@ export default function ChatPage() {
           ? data.content
           : ((data.content as Record<string, unknown>)?.text as string) || JSON.stringify(data);
 
-      // Extract followups
       const followups: string[] = [];
       if (Array.isArray(data.followups)) {
         for (const f of data.followups) {
@@ -368,7 +470,6 @@ export default function ChatPage() {
         }
       }
 
-      // Check approval
       const isPaused = Boolean(data.is_paused);
       const requirements: ApprovalReq[] = [];
       if (isPaused && Array.isArray(data.active_requirements)) {
@@ -385,7 +486,6 @@ export default function ChatPage() {
         }
       }
 
-      // Update session label with first user message
       if (messages.length === 0) {
         updateSessionLabel(msg);
       }
@@ -425,94 +525,80 @@ export default function ChatPage() {
   const hasMessages = messages.length > 0;
 
   return (
-    <div className="h-full flex flex-col">
-      <PageHeader title="Chat" badge={`Session: ${sessionId.slice(-8)}`}>
-        <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/5 text-[12px] transition-colors" title="Historial">
-          <Clock size={12} /> Historial
-        </button>
-        <button onClick={newSession} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 text-[12px] font-medium hover:bg-emerald-600/20 transition-colors" title="Nueva conversacion">
-          <RotateCcw size={12} /> Nuevo
-        </button>
-      </PageHeader>
+    <div className="h-full flex">
+      {/* Session sidebar */}
+      <SessionSidebar
+        sessions={sessions}
+        currentId={sessionId}
+        onSelect={loadSession}
+        onNew={newSession}
+        loadingSession={loadingSession}
+      />
 
-      {/* Session History Panel */}
-      {showHistory && (
-        <div className="border-b border-[#1e1e24] bg-[#0c0c0f] px-6 py-3">
-          <div className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Conversaciones recientes</div>
-          <div className="space-y-1">
-            {getSessionHistory().map((s) => (
-              <button
-                key={s.id}
-                onClick={() => switchSession(s.id)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-[12px] transition-colors ${
-                  s.id === sessionId
-                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                    : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
-                }`}
-              >
-                <div className="truncate">{s.label}</div>
-                <div className="text-[10px] text-zinc-700 mt-0.5">{new Date(s.ts).toLocaleString("es")}</div>
-              </button>
-            ))}
-            {getSessionHistory().length === 0 && (
-              <div className="text-[11px] text-zinc-700 py-2">Sin historial</div>
-            )}
-          </div>
+      {/* Chat area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <PageHeader title="Chat" badge={`Session: ${sessionId.slice(-8)}`} />
+
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto">
+          {loadingSession ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="flex items-center gap-2 text-zinc-600">
+                <Loader2 size={16} className="animate-spin" />
+                <span className="text-[13px]">Cargando conversacion...</span>
+              </div>
+            </div>
+          ) : !hasMessages ? (
+            <EmptyState onSelect={(t) => send(t)} />
+          ) : (
+            <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+              {messages.map((msg) => (
+                <MessageBubble key={msg.id} msg={msg} onFollowup={(t) => send(t)} />
+              ))}
+              {loading && <LoadingIndicator />}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        {!hasMessages ? (
-          <EmptyState onSelect={(t) => send(t)} />
-        ) : (
-          <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg} onFollowup={(t) => send(t)} />
-            ))}
-            {loading && <LoadingIndicator />}
+        {/* Scroll to bottom */}
+        {hasMessages && (
+          <div className="flex justify-center -mt-4 mb-1 relative z-10">
+            <button onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })} className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors shadow-lg">
+              <ChevronDown size={14} />
+            </button>
           </div>
         )}
-      </div>
 
-      {/* Scroll to bottom */}
-      {hasMessages && (
-        <div className="flex justify-center -mt-4 mb-1 relative z-10">
-          <button onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })} className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors shadow-lg">
-            <ChevronDown size={14} />
-          </button>
-        </div>
-      )}
-
-      {/* File preview */}
-      {files.length > 0 && (
-        <div className="px-6">
-          <div className="max-w-3xl mx-auto flex gap-2 pb-2">
-            {files.map((f) => (
-              <span key={f.name} className="text-[11px] text-zinc-400 bg-zinc-900 border border-[#1e1e24] px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-                <Paperclip size={10} />{f.name}
-                <button onClick={() => setFiles((prev) => prev.filter((p) => p.name !== f.name))} className="text-zinc-600 hover:text-zinc-400"><X size={10} /></button>
-              </span>
-            ))}
+        {/* File preview */}
+        {files.length > 0 && (
+          <div className="px-6">
+            <div className="max-w-3xl mx-auto flex gap-2 pb-2">
+              {files.map((f) => (
+                <span key={f.name} className="text-[11px] text-zinc-400 bg-zinc-900 border border-[#1e1e24] px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                  <Paperclip size={10} />{f.name}
+                  <button onClick={() => setFiles((prev) => prev.filter((p) => p.name !== f.name))} className="text-zinc-600 hover:text-zinc-400"><X size={10} /></button>
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Input */}
-      <div className="px-6 pb-5 pt-2">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative">
-          <div className="flex items-end gap-2 bg-[#0f0f12] border border-[#1e1e24] rounded-2xl px-4 py-3 focus-within:border-zinc-700 transition-colors shadow-lg">
-            <button type="button" onClick={() => fileRef.current?.click()} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors shrink-0 mb-0.5">
-              <Paperclip size={16} />
-            </button>
-            <input ref={fileRef} type="file" multiple accept="image/*,.pdf,.csv,.txt,.md,.json,.docx" onChange={handleFileSelect} className="hidden" />
-            <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Escribe un mensaje..." rows={1} className="flex-1 bg-transparent text-[14px] text-white placeholder-zinc-600 outline-none resize-none max-h-40 leading-relaxed" disabled={loading} />
-            <button type="submit" disabled={loading || (!input.trim() && files.length === 0)} className="p-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150 shrink-0 mb-0.5">
-              <Send size={14} />
-            </button>
-          </div>
-          <p className="text-center text-[11px] text-zinc-700 mt-2.5">Shift+Enter para nueva linea · Clip para adjuntar archivos</p>
-        </form>
+        {/* Input */}
+        <div className="px-6 pb-5 pt-2">
+          <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative">
+            <div className="flex items-end gap-2 bg-[#0f0f12] border border-[#1e1e24] rounded-2xl px-4 py-3 focus-within:border-zinc-700 transition-colors shadow-lg">
+              <button type="button" onClick={() => fileRef.current?.click()} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors shrink-0 mb-0.5">
+                <Paperclip size={16} />
+              </button>
+              <input ref={fileRef} type="file" multiple accept="image/*,.pdf,.csv,.txt,.md,.json,.docx" onChange={handleFileSelect} className="hidden" />
+              <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Escribe un mensaje..." rows={1} className="flex-1 bg-transparent text-[14px] text-white placeholder-zinc-600 outline-none resize-none max-h-40 leading-relaxed" disabled={loading} />
+              <button type="submit" disabled={loading || (!input.trim() && files.length === 0)} className="p-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150 shrink-0 mb-0.5">
+                <Send size={14} />
+              </button>
+            </div>
+            <p className="text-center text-[11px] text-zinc-700 mt-2.5">Shift+Enter para nueva linea</p>
+          </form>
+        </div>
       </div>
     </div>
   );

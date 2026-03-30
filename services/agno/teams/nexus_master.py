@@ -75,6 +75,7 @@ nexus_master = Team(
         "- Quotes, invoices, payments → Invoice Agent",
         "- Code review → Code Review Agent",
         "- General support (non-WhatsApp) → Support Agent",
+        "- Crawling, scraping, Prefect flows, automation, backups, data pipelines → Automation Agent",
         "",
         "## IMPORTANT",
         "- Route to ONE member only. Do NOT loop.",
