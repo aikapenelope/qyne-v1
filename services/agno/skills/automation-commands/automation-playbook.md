@@ -18,7 +18,7 @@ Call `list_prefect_deployments()` to get current deployment IDs.
 | Name | ID | Parameters |
 |------|-----|-----------|
 | property-pipeline-6h | 83ad0016-676d-4c36-baf9-36aba54d0bbd | sites: list[str], max_pages: int, download_images: bool |
-| website-crawler-ondemand | 643ba6b2-debb-42f1-938b-e7098bd2f42c | url: str, max_pages: int, include_paths: list[str], exclude_paths: list[str], index_in_knowledge: bool |
+| website-crawler-ondemand | 643ba6b2-debb-42f1-938b-e7098bd2f42c | url: str, max_pages: int (default 50), max_depth: int (default 3), include_paths: list[str] or null, exclude_paths: list[str] or null, index_in_knowledge: bool (default true), max_chunk_tokens: int (default 500) |
 | etl-documents-on-demand | c2848a70-7efb-4626-b8b2-776e3962e190 | file_paths: list[str], collection: str |
 | knowledge-indexer-ondemand | 6f0d0f41-4a24-4bbf-a140-4045b3a19dac | (no params) |
 | backup-daily-3am | d4ebd4d7-7138-4d1e-8d2c-c4e0c56ab313 | databases: list[str], bucket: str |
@@ -181,7 +181,7 @@ When the user asks to:
 
 | User says | Action |
 |-----------|--------|
-| "Scrapea/crawlea [URL]" | trigger website-crawler with the URL |
+| "Scrapea/crawlea [URL]" | trigger website-crawler with the URL. EXACT parameters JSON: {"url": "https://example.com", "max_pages": 20, "index_in_knowledge": false}. Use ONLY these parameter names. |
 | "Scrapea propiedades" | trigger property-pipeline |
 | "Procesa documentos" | trigger etl-documents |
 | "Indexa knowledge" | trigger knowledge-indexer |

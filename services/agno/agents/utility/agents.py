@@ -29,6 +29,7 @@ from tools.directus_business import (
 from tools.prefect_api import (
     list_prefect_deployments,
     trigger_prefect_flow,
+    trigger_website_crawler,
     check_prefect_flow_status,
     list_recent_flow_runs,
 )
@@ -61,7 +62,8 @@ if SKILLS_DIR.exists():
 
 _automation_tools: list = [
     save_contact, save_company, log_conversation, log_support_ticket,
-    list_prefect_deployments, trigger_prefect_flow, check_prefect_flow_status, list_recent_flow_runs,
+    list_prefect_deployments, trigger_prefect_flow, trigger_website_crawler,
+    check_prefect_flow_status, list_recent_flow_runs,
     save_chat_to_directus, save_chat_to_knowledge,
 ]
 
