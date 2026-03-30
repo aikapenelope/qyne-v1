@@ -43,6 +43,7 @@ SITE_CONFIGS = {
         "currency_default": "USD",
         "wait_selector": "li.ui-search-layout__item",
         "delay_seconds": 2.0,
+        "scrape_details": False,
         "schema": {
             "name": "MercadoLibre VE Properties",
             "baseSelector": "li.ui-search-layout__item",
@@ -54,6 +55,32 @@ SITE_CONFIGS = {
                 {"name": "url", "selector": "a.ui-search-link", "type": "attribute", "attribute": "href"},
                 {"name": "image_url", "selector": "img", "type": "attribute", "attribute": "data-src"},
                 {"name": "attrs", "selector": "li.ui-search-card-attributes__attribute", "type": "text"},
+            ],
+        },
+    },
+    "rentahouse_ve": {
+        "base_url": "https://rentahouse.com.ve/buscar-propiedades",
+        "pagination": "?page={page}&orderBy=entryTimestamp%20desc",
+        "items_per_page": 20,
+        "max_pages": 5,
+        "country": "VE",
+        "currency_default": "USD",
+        "delay_seconds": 3.0,
+        "scrape_details": True,
+        "schema": {
+            "name": "RentAHouse VE Properties",
+            "baseSelector": "div.card",
+            "fields": [
+                {"name": "title", "selector": "img", "type": "attribute", "attribute": "alt"},
+                {"name": "price_raw", "selector": "div.price strong", "type": "text"},
+                {"name": "url", "selector": "a", "type": "attribute", "attribute": "href"},
+                {"name": "image_url", "selector": "img", "type": "attribute", "attribute": "src"},
+                {"name": "dormitorios", "selector": "td.dormitorio", "type": "text"},
+                {"name": "banos", "selector": "td.baño", "type": "text"},
+                {"name": "estacionamiento", "selector": "td.puesto", "type": "text"},
+                {"name": "superficie", "selector": "td.superficie", "type": "text"},
+                {"name": "location", "selector": "div.card-footer span", "type": "text"},
+                {"name": "rah_code", "selector": "span.property-code", "type": "text"},
             ],
         },
     },
@@ -114,6 +141,108 @@ async def fetch_and_extract(url: str, site_config: dict) -> list[dict]:
         return []
 
 
+@task(retries=2, retry_delay_seconds=10)
+async def fetch_detail_page(url: str) -> dict:
+    """Fetch a property detail page and extract full info including realtor.
+
+    Used by rentahouse_ve and similar sites that need 2-level scraping:
+    listing page (basic info) → detail page (full description + realtor).
+    """
+    logger = get_run_logger()
+    logger.info(f"Fetching detail: {url}")
+    try:
+        from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode, BrowserConfig
+
+        bc = BrowserConfig(headless=True, java_script_enabled=True)
+        config = CrawlerRunConfig(
+            cache_mode=CacheMode.BYPASS,
+            page_timeout=20000,
+            delay_before_return_html=3.0,
+        )
+        async with AsyncWebCrawler(config=bc) as crawler:
+            result = await crawler.arun(url=url, config=config)
+
+        if not result.success:
+            logger.warning(f"Detail crawl failed: {url}")
+            return {}
+
+        md = result.markdown or ""
+        html = result.html or ""
+        detail: dict = {"source_url": url}
+
+        # Extract description (between "Descripción" and "Descripción General")
+        desc_start = md.find("## Descripción\n")
+        desc_end = md.find("## Descripción General")
+        if desc_start >= 0 and desc_end > desc_start:
+            detail["description"] = md[desc_start + 15:desc_end].strip()
+
+        # Extract structured fields from "Descripción General" section
+        gen_start = md.find("## Descripción General")
+        gen_end = md.find("## Detalles")
+        if gen_start >= 0:
+            section = md[gen_start:gen_end] if gen_end > gen_start else md[gen_start:gen_start + 2000]
+            for line in section.split("\n"):
+                line = line.strip().lstrip("* ").lstrip("- ")
+                if ":" in line:
+                    key, val = line.split(":", 1)
+                    key = key.strip().lower().replace(" ", "_")
+                    val = val.strip()
+                    if key and val:
+                        detail[f"field_{key}"] = val
+
+        # Extract features/details checkmarks
+        features = []
+        det_start = md.find("## Detalles")
+        det_end = md.find("## Artefactos")
+        if det_start >= 0:
+            section = md[det_start:det_end] if det_end > det_start else md[det_start:det_start + 1000]
+            for line in section.split("\n"):
+                if "✅" in line:
+                    feat = line.replace("✅", "").strip().lstrip("* ").lstrip("- ")
+                    if feat:
+                        features.append(feat)
+        detail["features"] = features
+
+        # Extract location
+        loc_start = md.find("## Ubicación")
+        if loc_start >= 0:
+            loc_section = md[loc_start:loc_start + 500]
+            for line in loc_section.split("\n"):
+                line = line.strip().lstrip("* ").lstrip("- ")
+                if ":" in line:
+                    key, val = line.split(":", 1)
+                    key = key.strip().lower()
+                    val = val.strip()
+                    if key in ("país", "estado", "ciudad", "urbanización", "pais", "urbanizacion"):
+                        detail[f"loc_{key}"] = val
+
+        # Extract realtor name and WhatsApp
+        contact_start = md.find("### Contactar")
+        if contact_start >= 0:
+            contact_section = md[contact_start:contact_start + 500]
+            lines = contact_section.split("\n")
+            for line in lines:
+                # Realtor name is usually in ## heading after ### Contactar
+                if line.startswith("## ") and "Contactar" not in line:
+                    detail["realtor_name"] = line.replace("## ", "").strip()
+                # WhatsApp link
+                wa_match = re.search(r"wa\.me/(\d+)", line)
+                if wa_match:
+                    detail["realtor_whatsapp"] = wa_match.group(1)
+
+        # Extract RAH code from HTML
+        rah_match = re.search(r"rah-(\d{2}-\d{4,6})", html, re.I)
+        if rah_match:
+            detail["rah_code"] = f"VE {rah_match.group(1)}"
+
+        logger.info(f"Detail extracted: {len(detail)} fields, realtor={detail.get('realtor_name', 'N/A')}")
+        return detail
+
+    except Exception as e:
+        logger.error(f"Detail fetch error: {e}")
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # Stage 2: NORMALIZE
 # ---------------------------------------------------------------------------
@@ -144,17 +273,18 @@ def _extract_area(text: str) -> float | None:
 def normalize(raw: dict, site_name: str) -> dict:
     """Clean and structure raw extracted data."""
     config = SITE_CONFIGS[site_name]
-    url = raw.get("url", "")
+    url = raw.get("source_url") or raw.get("url", "")
     if url and not url.startswith("http"):
         url = f"{config['base_url'].rstrip('/')}{url}"
 
     attrs = raw.get("attrs", "")
     title = (raw.get("title") or "").strip()
     location = (raw.get("location") or "").strip()
+    description = raw.get("description") or title
 
-    # Extract features
-    features = []
-    if attrs:
+    # Extract features (from attrs text or from detail page features list)
+    features = raw.get("features", [])
+    if not features and attrs:
         text_lower = attrs.lower()
         for kw, feat in FEATURE_KEYWORDS.items():
             if kw in text_lower and feat not in features:
@@ -168,8 +298,14 @@ def normalize(raw: dict, site_name: str) -> dict:
             prop_type = pt
             break
 
-    # Extract city
-    city = location.split(",")[0].strip() if location else ""
+    # Extract city — from detail page location fields or from listing
+    city = raw.get("loc_ciudad", "")
+    state = raw.get("loc_estado", "")
+    neighborhood = raw.get("loc_urbanización") or raw.get("loc_urbanizacion", "")
+    if not city:
+        city = location.split(",")[0].strip() if location else ""
+    if state or neighborhood:
+        location = ", ".join(filter(None, [neighborhood, city, state]))
 
     # Build image objects
     image_urls = []
@@ -181,24 +317,70 @@ def normalize(raw: dict, site_name: str) -> dict:
             "source": "original",
         })
 
-    return {
+    # Price: from detail page fields or from listing
+    price_raw = raw.get("price_raw", "")
+    if not price_raw:
+        price_raw = raw.get("field_**usd", "") or raw.get("field_usd", "")
+
+    # Bedrooms/bathrooms: from detail fields or from listing attrs
+    bedrooms = None
+    bathrooms = None
+    area = None
+    parking = None
+
+    # Try detail page fields first
+    for key, val in raw.items():
+        if key.startswith("field_"):
+            val_str = str(val).strip()
+            if "dormitorio" in key:
+                bedrooms = _extract_number(val_str, "") or int(re.sub(r"\D", "", val_str) or "0") or None
+            elif "baño" in key or "bano" in key:
+                bathrooms = _extract_number(val_str, "") or int(re.sub(r"\D", "", val_str) or "0") or None
+            elif "área" in key or "area" in key:
+                area = _extract_area(val_str)
+
+    # Fall back to listing page fields
+    if not bedrooms:
+        bedrooms = int(raw["dormitorios"]) if raw.get("dormitorios") and raw["dormitorios"].strip().isdigit() else _extract_number(attrs, "habitaci|dormitorio|cuarto")
+    if not bathrooms:
+        bathrooms = int(raw["banos"]) if raw.get("banos") and raw["banos"].strip().isdigit() else _extract_number(attrs, "ba[ñn]o")
+    if not area:
+        superficie = raw.get("superficie", "")
+        area = _extract_area(superficie) if superficie else _extract_area(attrs)
+    if raw.get("estacionamiento") and raw["estacionamiento"].strip().isdigit():
+        parking = int(raw["estacionamiento"])
+
+    result = {
         "title": title[:500],
-        "description": title,
-        "price": _parse_price(raw.get("price_raw", "")),
+        "description": description[:5000],
+        "price": _parse_price(price_raw),
         "currency": CURRENCY_MAP.get((raw.get("currency_symbol") or "").strip(), config["currency_default"]),
         "location": location,
         "city": city,
+        "state": state,
+        "neighborhood": neighborhood,
         "country": config["country"],
         "url": url,
         "images": image_urls,
         "features": features,
-        "bedrooms": _extract_number(attrs, "habitaci|dormitorio|cuarto"),
-        "bathrooms": _extract_number(attrs, "ba[ñn]o"),
-        "area_m2": _extract_area(attrs),
+        "bedrooms": bedrooms,
+        "bathrooms": bathrooms,
+        "parking": parking,
+        "area_m2": area,
         "property_type": prop_type,
         "source": site_name,
         "scraped_at": datetime.utcnow().isoformat(),
     }
+
+    # Add rentahouse-specific fields
+    if raw.get("rah_code"):
+        result["external_id"] = raw["rah_code"]
+    if raw.get("realtor_name"):
+        result["realtor_name"] = raw["realtor_name"]
+    if raw.get("realtor_whatsapp"):
+        result["realtor_phone"] = raw["realtor_whatsapp"]
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -360,13 +542,27 @@ async def property_pipeline(
 
         for page in range(pages):
             offset = page * config.get("items_per_page", 48)
-            url = config["base_url"] + config["pagination"].format(offset=offset)
+            # Build URL: some sites use offset, others use page number
+            pagination = config["pagination"]
+            if "{page}" in pagination:
+                url = config["base_url"] + pagination.format(page=page + 1)
+            else:
+                url = config["base_url"] + pagination.format(offset=offset)
 
             # Stage 1+2: Fetch + Extract
             raw_items = await fetch_and_extract(url, config)
             stats["fetched"] += len(raw_items)
 
             for raw in raw_items:
+                # Stage 2.5: Fetch detail page if configured
+                if config.get("scrape_details") and raw.get("url"):
+                    detail_url = raw["url"]
+                    if not detail_url.startswith("http"):
+                        detail_url = "https://rentahouse.com.ve" + detail_url
+                    detail = await fetch_detail_page(detail_url)
+                    if detail:
+                        raw.update(detail)
+
                 # Stage 3: Normalize
                 item = normalize(raw, site_name)
 
