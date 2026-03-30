@@ -458,16 +458,59 @@ def validate(item: dict) -> bool:
 
 
 @task(retries=1)
-def is_duplicate(url: str) -> bool:
-    """Check if URL already exists in properties."""
+def is_duplicate(url: str) -> dict | None:
+    """Check if URL already exists. Returns existing property or None."""
     if not DIRECTUS_TOKEN or not url:
-        return False
-    resp = httpx.get(
-        f"{DIRECTUS_URL}/items/properties?filter[url][_eq]={url}&fields=id&limit=1",
-        headers=HEADERS,
-        timeout=10,
-    )
-    return len(resp.json().get("data", [])) > 0 if resp.is_success else False
+        return None
+    try:
+        resp = httpx.get(
+            f"{DIRECTUS_URL}/items/properties?filter[url][_eq]={url}&fields=id,price,price_history,status&limit=1",
+            headers=HEADERS,
+            timeout=10,
+        )
+        items = resp.json().get("data", []) if resp.is_success else []
+        return items[0] if items else None
+    except Exception:
+        return None
+
+
+@task
+def update_price_if_changed(existing: dict, new_price: float | None, new_item: dict) -> None:
+    """If price changed, update the property and append to price_history."""
+    if not existing or not new_price or not DIRECTUS_TOKEN:
+        return
+    old_price = existing.get("price")
+    if old_price and abs(float(old_price) - new_price) > 0.01:
+        logger = get_run_logger()
+        history = existing.get("price_history") or []
+        history.append({
+            "price": old_price,
+            "date": datetime.utcnow().strftime("%Y-%m-%d"),
+        })
+        update = {
+            "price": new_price,
+            "price_history": history,
+            "last_verified_at": datetime.utcnow().isoformat(),
+        }
+        # Also update price_per_m2 if area exists
+        area = new_item.get("area_m2")
+        if area and area > 0:
+            update["price_per_m2"] = round(new_price / area, 2)
+        httpx.patch(
+            f"{DIRECTUS_URL}/items/properties/{existing['id']}",
+            json=update,
+            headers=HEADERS,
+            timeout=10,
+        )
+        logger.info(f"Price changed: {old_price} → {new_price} (property {existing['id']})")
+    else:
+        # Price same, just update last_verified_at
+        httpx.patch(
+            f"{DIRECTUS_URL}/items/properties/{existing['id']}",
+            json={"last_verified_at": datetime.utcnow().isoformat()},
+            headers=HEADERS,
+            timeout=10,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -624,9 +667,11 @@ async def property_pipeline(
                     continue
                 stats["valid"] += 1
 
-                # Stage 5: Dedup
-                if is_duplicate(item.get("url", "")):
+                # Stage 5: Dedup + Price tracking
+                existing = is_duplicate(item.get("url", ""))
+                if existing:
                     stats["duplicates"] += 1
+                    update_price_if_changed(existing, item.get("price"), item)
                     continue
 
                 # Stage 6: Enrich
@@ -664,6 +709,25 @@ async def property_pipeline(
             headers=HEADERS,
             timeout=10,
         )
+
+    # Alert if zero items fetched (selector may be broken)
+    if stats["fetched"] == 0:
+        logger = get_run_logger()
+        logger.error(f"ALERT: Zero items fetched from {sites}. CSS selectors may be broken!")
+        if DIRECTUS_TOKEN:
+            httpx.post(
+                f"{DIRECTUS_URL}/items/events",
+                json={
+                    "type": "scraper_alert",
+                    "payload": {
+                        "message": f"Property pipeline fetched 0 items from {sites}",
+                        "severity": "critical",
+                        "sites": sites,
+                    },
+                },
+                headers=HEADERS,
+                timeout=10,
+            )
 
     return stats
 
