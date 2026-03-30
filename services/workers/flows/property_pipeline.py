@@ -99,12 +99,29 @@ FEATURE_KEYWORDS = {
 }
 
 PROPERTY_TYPES = {
-    "apartamento": "apartment", "apto": "apartment",
-    "casa": "house", "townhouse": "house",
-    "terreno": "land", "lote": "land", "parcela": "land",
-    "oficina": "office", "local": "commercial",
+    # Residencial
+    "apartamento": "apartamento", "apto": "apartamento",
+    "casa": "casa",
+    "townhouse": "townhouse", "town house": "townhouse",
     "penthouse": "penthouse", "ph": "penthouse",
-    "finca": "farm", "hacienda": "farm",
+    "anexo": "anexo",
+    # Comercial
+    "local": "local_comercial", "local comercial": "local_comercial",
+    "oficina": "oficina",
+    "galpon": "galpon", "galpón": "galpon", "deposito": "galpon",
+    "edificio": "edificio",
+    "negocio": "negocio", "negocios": "negocio", "negocios y empresas": "negocio",
+    # Terrenos
+    "terreno": "terreno", "lote": "terreno",
+    # Rural / Especial
+    "finca": "hacienda_finca", "hacienda": "hacienda_finca",
+    "hotel": "hotel_resort", "resort": "hotel_resort", "posada": "hotel_resort",
+    "club": "accion_club", "club campestre": "accion_club", "acción de club": "accion_club",
+    "parcela de cementerio": "parcela_cementerio", "cementerio": "parcela_cementerio",
+    # Industrial
+    "industrial": "industrial",
+    "estacionamiento": "estacionamiento",
+    "consultorio": "consultorio_medico", "consultorio medico": "consultorio_medico",
 }
 
 
@@ -317,24 +334,47 @@ def _extract_area(text: str) -> float | None:
 
 @task
 def normalize(raw: dict, site_name: str) -> dict:
-    """Clean and structure raw extracted data."""
+    """Clean and structure raw extracted data to match standard schema."""
     config = SITE_CONFIGS[site_name]
     url = raw.get("source_url") or raw.get("url", "")
     if url and not url.startswith("http"):
         url = f"{config['base_url'].rstrip('/')}{url}"
 
     attrs = raw.get("attrs", "")
-    title = (raw.get("title") or "").strip()
+    title_raw = (raw.get("title") or "").strip()
     location = (raw.get("location") or "").strip()
-    description = raw.get("description") or title
+    description = raw.get("description") or ""
 
-    # Extract features (from attrs text or from detail page features list)
+    # --- Clean title ---
+    # Remove RAH codes, line breaks, prices from title
+    title = re.sub(r"C[oó]digo\s*RAH[:\s]*\w+\s*\d+-\d+", "", title_raw, flags=re.I)
+    title = re.sub(r"-?\s*precio\s*:?\s*\w+\s*[\d.,]+", "", title, flags=re.I)
+    title = re.sub(r"\s+", " ", title).strip().strip("-").strip()
+    if not title:
+        title = title_raw
+    # Remove leading/trailing whitespace and normalize
+    title = " ".join(title.split())
+
+    # --- Clean features ---
     features = raw.get("features", [])
     if not features and attrs:
         text_lower = attrs.lower()
         for kw, feat in FEATURE_KEYWORDS.items():
             if kw in text_lower and feat not in features:
                 features.append(feat)
+    # Clean symbols and filter negatives
+    cleaned_features = []
+    for f in features:
+        f = f.replace("✅", "").replace("❌", "").replace("#", "").strip()
+        f = re.sub(r"\?$", "", f).strip()
+        if not f or ": no" in f.lower() or ": false" in f.lower():
+            continue
+        # Normalize plurals
+        if f.endswith("es") and len(f) > 5:
+            singular = f[:-2] if f[:-2] + "es" == f else f[:-1] if f.endswith("s") else f
+            f = singular if len(singular) > 3 else f
+        cleaned_features.append(f)
+    features = cleaned_features
 
     # Detect property type
     title_lower = title.lower()
@@ -373,6 +413,8 @@ def normalize(raw: dict, site_name: str) -> dict:
     # Bedrooms/bathrooms: from detail fields or from listing attrs
     bedrooms = None
     bathrooms = None
+    bathrooms_full = None
+    bathrooms_half = None
     area = None
     parking = None
 
@@ -380,11 +422,19 @@ def normalize(raw: dict, site_name: str) -> dict:
     for key, val in raw.items():
         if key.startswith("field_"):
             val_str = str(val).strip()
-            if "dormitorio" in key:
+            key_lower = key.lower()
+            if "dormitorio" in key_lower:
                 bedrooms = _extract_number(val_str, "") or int(re.sub(r"\D", "", val_str) or "0") or None
-            elif "baño" in key or "bano" in key:
+            elif "total_baño" in key_lower or "total baño" in key_lower:
                 bathrooms = _extract_number(val_str, "") or int(re.sub(r"\D", "", val_str) or "0") or None
-            elif "área" in key or "area" in key:
+            elif "baños_completo" in key_lower or "completo" in key_lower:
+                bathrooms_full = int(re.sub(r"\D", "", val_str) or "0") or None
+            elif "medios_baño" in key_lower or "medio" in key_lower:
+                bathrooms_half = int(re.sub(r"\D", "", val_str) or "0") or None
+            elif ("baño" in key_lower or "bano" in key_lower) and "total" not in key_lower:
+                if not bathrooms:
+                    bathrooms = _extract_number(val_str, "") or int(re.sub(r"\D", "", val_str) or "0") or None
+            elif "área" in key_lower or "area" in key_lower:
                 area = _extract_area(val_str)
 
     # Fall back to listing page fields
@@ -413,6 +463,8 @@ def normalize(raw: dict, site_name: str) -> dict:
         "features": features,
         "bedrooms": bedrooms,
         "bathrooms": bathrooms,
+        "bathrooms_full": bathrooms_full,
+        "bathrooms_half": bathrooms_half,
         "parking": parking,
         "area_m2": area,
         "property_type": prop_type,
@@ -481,8 +533,41 @@ def enrich(item: dict) -> dict:
     enriched = {**item}
     if item.get("price") and item.get("area_m2") and item["area_m2"] > 0:
         enriched["price_per_m2"] = round(item["price"] / item["area_m2"], 2)
+
+    # Price category: different ranges for venta vs alquiler
     price = item.get("price") or 0
-    enriched["price_category"] = "budget" if price < 50000 else "mid" if price < 200000 else "premium"
+    if item.get("operation") == "alquiler":
+        enriched["price_category"] = (
+            "budget" if price < 500 else
+            "mid" if price < 1500 else
+            "premium" if price < 5000 else
+            "luxury"
+        )
+    else:
+        enriched["price_category"] = (
+            "budget" if price < 50000 else
+            "mid" if price < 200000 else
+            "premium" if price < 500000 else
+            "luxury"
+        )
+
+    # Clean construction_details keys to snake_case
+    constr = item.get("construction_details")
+    if constr and isinstance(constr, dict):
+        cleaned: dict[str, str | int | float] = {}
+        for k, v in constr.items():
+            # Skip negative entries
+            if "❌" in k or ": no" in str(v).lower():
+                continue
+            key = k.lower().replace(" ", "_").replace(".", "").replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+            key = re.sub(r"_+", "_", key).strip("_")
+            # Try to convert numeric values
+            try:
+                cleaned[key] = int(v) if str(v).strip().isdigit() else v
+            except (ValueError, TypeError):
+                cleaned[key] = v
+        enriched["construction_details"] = cleaned
+
     enriched["status"] = "scraped"
     return enriched
 
