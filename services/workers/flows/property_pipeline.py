@@ -145,8 +145,8 @@ async def fetch_and_extract(url: str, site_config: dict) -> list[dict]:
 async def fetch_detail_page(url: str) -> dict:
     """Fetch a property detail page and extract full info including realtor.
 
-    Used by rentahouse_ve and similar sites that need 2-level scraping:
-    listing page (basic info) → detail page (full description + realtor).
+    Extracts: description, all images (high quality), operation type,
+    structured fields, features, construction details, location, realtor + WhatsApp.
     """
     logger = get_run_logger()
     logger.info(f"Fetching detail: {url}")
@@ -170,13 +170,42 @@ async def fetch_detail_page(url: str) -> dict:
         html = result.html or ""
         detail: dict = {"source_url": url}
 
-        # Extract description (between "Descripción" and "Descripción General")
+        # --- Operation type (venta/alquiler) from URL or title ---
+        url_lower = url.lower()
+        if "alquiler" in url_lower or "alquiler" in md[:200].lower():
+            detail["operation"] = "alquiler"
+        elif "venta" in url_lower or "venta" in md[:200].lower():
+            detail["operation"] = "venta"
+
+        # --- All images (high quality 1280x1024) ---
+        all_images = []
+        img_urls = re.findall(
+            r"https://cdn\.(?:photos|resize)\.sparkplatform\.com/ven/(?:1280x1024/true/)?(\S+?)(?:-[ot])?\.jpg",
+            html,
+        )
+        # Deduplicate by base ID and build high-quality URLs
+        seen_ids: set[str] = set()
+        for raw_id in img_urls:
+            base_id = re.sub(r"-[ot]$", "", raw_id).split("/")[-1]
+            if base_id not in seen_ids:
+                seen_ids.add(base_id)
+                hq_url = f"https://cdn.resize.sparkplatform.com/ven/1280x1024/true/{base_id}-o.jpg"
+                all_images.append({
+                    "url": hq_url,
+                    "order": len(all_images),
+                    "source": "rentahouse_cdn",
+                })
+        if all_images:
+            detail["all_images"] = all_images
+            logger.info(f"Found {len(all_images)} images")
+
+        # --- Description ---
         desc_start = md.find("## Descripción\n")
         desc_end = md.find("## Descripción General")
         if desc_start >= 0 and desc_end > desc_start:
             detail["description"] = md[desc_start + 15:desc_end].strip()
 
-        # Extract structured fields from "Descripción General" section
+        # --- Structured fields from "Descripción General" ---
         gen_start = md.find("## Descripción General")
         gen_end = md.find("## Detalles")
         if gen_start >= 0:
@@ -187,23 +216,39 @@ async def fetch_detail_page(url: str) -> dict:
                     key, val = line.split(":", 1)
                     key = key.strip().lower().replace(" ", "_")
                     val = val.strip()
-                    if key and val:
+                    if key and val and not key.startswith("!["):
                         detail[f"field_{key}"] = val
 
-        # Extract features/details checkmarks
+        # --- Features from Detalles + Dispositivos + Construccion ---
         features = []
-        det_start = md.find("## Detalles")
-        det_end = md.find("## Artefactos")
-        if det_start >= 0:
-            section = md[det_start:det_end] if det_end > det_start else md[det_start:det_start + 1000]
+        secondary_details: dict[str, str] = {}
+
+        for section_name in ["## Detalles", "## Dispositivos", "## Construcción"]:
+            sec_start = md.find(section_name)
+            if sec_start < 0:
+                continue
+            # Find end (next ## or end of text)
+            sec_end = md.find("\n## ", sec_start + len(section_name))
+            section = md[sec_start:sec_end] if sec_end > sec_start else md[sec_start:sec_start + 1000]
+
             for line in section.split("\n"):
-                if "✅" in line:
-                    feat = line.replace("✅", "").strip().lstrip("* ").lstrip("- ")
+                line_clean = line.strip().lstrip("* ").lstrip("- ")
+                if "✅" in line_clean:
+                    feat = line_clean.replace("✅", "").strip()
                     if feat:
                         features.append(feat)
-        detail["features"] = features
+                elif ":" in line_clean and not line_clean.startswith("#"):
+                    key, val = line_clean.split(":", 1)
+                    key = key.strip()
+                    val = val.strip()
+                    if key and val:
+                        secondary_details[key] = val
 
-        # Extract location
+        detail["features"] = features
+        if secondary_details:
+            detail["construction_details"] = secondary_details
+
+        # --- Location ---
         loc_start = md.find("## Ubicación")
         if loc_start >= 0:
             loc_section = md[loc_start:loc_start + 500]
@@ -216,26 +261,27 @@ async def fetch_detail_page(url: str) -> dict:
                     if key in ("país", "estado", "ciudad", "urbanización", "pais", "urbanizacion"):
                         detail[f"loc_{key}"] = val
 
-        # Extract realtor name and WhatsApp
+        # --- Realtor name and WhatsApp ---
         contact_start = md.find("### Contactar")
         if contact_start >= 0:
             contact_section = md[contact_start:contact_start + 500]
-            lines = contact_section.split("\n")
-            for line in lines:
-                # Realtor name is usually in ## heading after ### Contactar
+            for line in contact_section.split("\n"):
                 if line.startswith("## ") and "Contactar" not in line:
                     detail["realtor_name"] = line.replace("## ", "").strip()
-                # WhatsApp link
                 wa_match = re.search(r"wa\.me/(\d+)", line)
                 if wa_match:
                     detail["realtor_whatsapp"] = wa_match.group(1)
 
-        # Extract RAH code from HTML
+        # --- RAH code ---
         rah_match = re.search(r"rah-(\d{2}-\d{4,6})", html, re.I)
         if rah_match:
             detail["rah_code"] = f"VE {rah_match.group(1)}"
 
-        logger.info(f"Detail extracted: {len(detail)} fields, realtor={detail.get('realtor_name', 'N/A')}")
+        logger.info(
+            f"Detail extracted: {len(detail)} fields, "
+            f"images={len(all_images)}, features={len(features)}, "
+            f"realtor={detail.get('realtor_name', 'N/A')}"
+        )
         return detail
 
     except Exception as e:
@@ -307,9 +353,11 @@ def normalize(raw: dict, site_name: str) -> dict:
     if state or neighborhood:
         location = ", ".join(filter(None, [neighborhood, city, state]))
 
-    # Build image objects
+    # Build image objects — prefer all_images from detail page
     image_urls = []
-    if raw.get("image_url"):
+    if raw.get("all_images"):
+        image_urls = raw["all_images"]
+    elif raw.get("image_url"):
         image_urls.append({
             "url": raw["image_url"],
             "alt": title[:80],
@@ -379,6 +427,10 @@ def normalize(raw: dict, site_name: str) -> dict:
         result["realtor_name"] = raw["realtor_name"]
     if raw.get("realtor_whatsapp"):
         result["realtor_phone"] = raw["realtor_whatsapp"]
+    if raw.get("operation"):
+        result["operation"] = raw["operation"]
+    if raw.get("construction_details"):
+        result["construction_details"] = raw["construction_details"]
 
     return result
 
