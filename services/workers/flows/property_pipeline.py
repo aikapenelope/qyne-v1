@@ -29,6 +29,49 @@ RUSTFS_USER = os.getenv("RUSTFS_USER", "qyne")
 RUSTFS_PASSWORD = os.getenv("RUSTFS_PASSWORD", "")
 HEADERS = {"Authorization": f"Bearer {DIRECTUS_TOKEN}", "Content-Type": "application/json"}
 
+MAX_CONSECUTIVE_FAILURES = 3
+
+
+# ---------------------------------------------------------------------------
+# Utility functions
+# ---------------------------------------------------------------------------
+
+
+def standardize_phone(phone: str, country_code: str = "58") -> str:
+    """Convert any phone format to international: 58XXXXXXXXXX."""
+    if not phone:
+        return ""
+    digits = re.sub(r"[^\d]", "", str(phone))
+    if digits.startswith("0") and len(digits) == 11:
+        return country_code + digits[1:]
+    if digits.startswith(country_code):
+        return digits
+    if len(digits) == 10:
+        return country_code + digits
+    return digits
+
+
+def check_circuit_breaker(site_name: str) -> bool:
+    """Check if site has too many recent failures. Returns True if OK."""
+    if not DIRECTUS_TOKEN:
+        return True
+    try:
+        resp = httpx.get(
+            f"{DIRECTUS_URL}/items/events",
+            params={
+                "filter[type][_eq]": "scraper_alert",
+                "filter[payload][_contains]": site_name,
+                "sort": "-date_created",
+                "limit": MAX_CONSECUTIVE_FAILURES,
+            },
+            headers=HEADERS,
+            timeout=10,
+        )
+        alerts = resp.json().get("data", []) if resp.is_success else []
+        return len(alerts) < MAX_CONSECUTIVE_FAILURES
+    except Exception:
+        return True  # On error, allow scraping
+
 # ---------------------------------------------------------------------------
 # Site Configurations
 # ---------------------------------------------------------------------------
@@ -633,20 +676,32 @@ def normalize(raw: dict, site_name: str) -> dict:
             elif "área" in key_lower or "area" in key_lower:
                 area = _extract_area(val_str)
 
-    # Fall back to listing page fields or direct detail fields
-    if not bedrooms:
-        bedrooms = raw.get("bedrooms") or (int(raw["dormitorios"]) if raw.get("dormitorios") and str(raw["dormitorios"]).strip().isdigit() else _extract_number(attrs, "habitaci|dormitorio|cuarto"))
-    if not bathrooms:
-        bathrooms = raw.get("bathrooms") or (int(raw["banos"]) if raw.get("banos") and str(raw["banos"]).strip().isdigit() else _extract_number(attrs, "ba[ñn]o"))
-    if not area:
-        area = raw.get("area_m2")
+    # Fall back to listing page fields or direct detail fields (hardened)
+    try:
+        if not bedrooms:
+            bedrooms = raw.get("bedrooms") or (int(raw["dormitorios"]) if raw.get("dormitorios") and str(raw["dormitorios"]).strip().isdigit() else _extract_number(attrs, "habitaci|dormitorio|cuarto"))
+    except (ValueError, TypeError):
+        bedrooms = None
+    try:
+        if not bathrooms:
+            bathrooms = raw.get("bathrooms") or (int(raw["banos"]) if raw.get("banos") and str(raw["banos"]).strip().isdigit() else _extract_number(attrs, "ba[ñn]o"))
+    except (ValueError, TypeError):
+        bathrooms = None
+    try:
         if not area:
-            superficie = raw.get("superficie", "")
-            area = _extract_area(superficie) if superficie else _extract_area(attrs)
-    if not parking:
-        parking = raw.get("parking")
-        if not parking and raw.get("estacionamiento") and str(raw["estacionamiento"]).strip().isdigit():
-            parking = int(raw["estacionamiento"])
+            area = raw.get("area_m2")
+            if not area:
+                superficie = raw.get("superficie", "")
+                area = _extract_area(superficie) if superficie else _extract_area(attrs)
+    except (ValueError, TypeError):
+        area = None
+    try:
+        if not parking:
+            parking = raw.get("parking")
+            if not parking and raw.get("estacionamiento") and str(raw["estacionamiento"]).strip().isdigit():
+                parking = int(raw["estacionamiento"])
+    except (ValueError, TypeError):
+        parking = None
 
     result = {
         "title": title[:500],
@@ -680,9 +735,9 @@ def normalize(raw: dict, site_name: str) -> dict:
     if raw.get("realtor_name") and not result.get("realtor_name"):
         result["realtor_name"] = raw["realtor_name"]
     if raw.get("realtor_whatsapp"):
-        result["realtor_phone"] = raw["realtor_whatsapp"]
+        result["realtor_phone"] = standardize_phone(raw["realtor_whatsapp"])
     elif raw.get("realtor_phone") and not result.get("realtor_phone"):
-        result["realtor_phone"] = raw["realtor_phone"]
+        result["realtor_phone"] = standardize_phone(raw["realtor_phone"])
     if raw.get("realtor_email"):
         result["realtor_email"] = raw["realtor_email"]
     if raw.get("operation") and not result.get("operation"):
@@ -925,6 +980,14 @@ async def property_pipeline(
     for site_name in sites:
         if site_name not in SITE_CONFIGS:
             continue
+
+        # Circuit breaker: skip site if too many recent failures
+        if not check_circuit_breaker(site_name):
+            logger = get_run_logger()
+            logger.error(f"Circuit breaker OPEN for {site_name}: skipping (too many recent failures)")
+            stats["errors"] += 1
+            continue
+
         config = SITE_CONFIGS[site_name]
         pages = max_pages or config.get("max_pages", 5)
 
