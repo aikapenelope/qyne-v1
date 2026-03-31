@@ -67,6 +67,7 @@ SITE_CONFIGS = {
         "currency_default": "USD",
         "delay_seconds": 3.0,
         "scrape_details": True,
+        "listing_mode": "css",
         "schema": {
             "name": "RentAHouse VE Properties",
             "baseSelector": "div.card",
@@ -83,6 +84,20 @@ SITE_CONFIGS = {
                 {"name": "rah_code", "selector": "span.property-code", "type": "text"},
             ],
         },
+    },
+    "century21_ve": {
+        "base_url": "https://www.century21.com.ve/v/resultados",
+        "pagination": "",
+        "items_per_page": 100,
+        "max_pages": 1,
+        "country": "VE",
+        "currency_default": "USD",
+        "delay_seconds": 3.0,
+        "scrape_details": True,
+        "listing_mode": "links",
+        "link_pattern": r"/propiedad/[^\"\x27\s>]+",
+        "link_prefix": "https://www.century21.com.ve",
+        "detail_parser": "century21",
     },
 }
 
@@ -306,8 +321,212 @@ async def fetch_detail_page(url: str) -> dict:
         return {}
 
 
-# ---------------------------------------------------------------------------
-# Stage 2: NORMALIZE
+def _parse_number(text: str) -> float | None:
+    """Parse number handling dot-as-thousands: '18.000,0' → 18000.0"""
+    if not text:
+        return None
+    text = text.strip()
+    # If has both dot and comma, dot is thousands separator
+    if "." in text and "," in text:
+        text = text.replace(".", "").replace(",", ".")
+    elif "," in text:
+        text = text.replace(",", ".")
+    try:
+        return float(text)
+    except ValueError:
+        cleaned = re.sub(r"[^\d.]", "", text)
+        return float(cleaned) if cleaned else None
+
+
+@task(retries=2, retry_delay_seconds=10)
+async def fetch_detail_century21(url: str) -> dict:
+    """Fetch a Century21 property detail page and extract all data."""
+    logger = get_run_logger()
+    logger.info(f"Fetching C21 detail: {url}")
+    try:
+        from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode, BrowserConfig
+
+        bc = BrowserConfig(headless=True, java_script_enabled=True)
+        config = CrawlerRunConfig(
+            cache_mode=CacheMode.BYPASS,
+            page_timeout=20000,
+            delay_before_return_html=3.0,
+        )
+        async with AsyncWebCrawler(config=bc) as crawler:
+            result = await crawler.arun(url=url, config=config)
+
+        if not result.success:
+            logger.warning(f"C21 detail crawl failed: {url}")
+            return {}
+
+        md = result.markdown or ""
+        html = result.html or ""
+        detail: dict = {"source_url": url, "raw_description": ""}
+
+        # --- Operation from URL ---
+        url_lower = url.lower()
+        if "alquiler" in url_lower:
+            detail["operation"] = "alquiler"
+        elif "venta" in url_lower:
+            detail["operation"] = "venta"
+
+        # --- Title from h1 (remove trailing | ID) ---
+        h1 = re.search(r"# (.+)", md)
+        if h1:
+            detail["title"] = re.sub(r"\s*\|\s*\d+$", "", h1.group(1)).strip()
+
+        # --- Price ---
+        price_match = re.search(r"######\s*\$([\d.,]+)", md)
+        if not price_match:
+            price_match = re.search(r"\$\s*([\d.,]+)", md)
+        if price_match:
+            detail["price_raw"] = price_match.group(1)
+
+        # --- Specs: bedrooms, bathrooms, parking, area ---
+        for field, pattern in [
+            ("bedrooms", r"Habitaciones\s*\n\s*(\d+)"),
+            ("bathrooms", r"Baños\s*\n\s*(\d+)"),
+            ("parking", r"Estacionamientos\s*\n\s*(\d+)"),
+        ]:
+            m = re.search(pattern, md)
+            if m:
+                detail[field] = int(m.group(1))
+
+        area = re.search(r"Construcción\s*\n\s*([\d.,]+)\s*m", md)
+        if area:
+            detail["area_m2"] = _parse_number(area.group(1))
+        terreno = re.search(r"Terreno\s*\n\s*([\d.,]+)\s*m", md)
+        if terreno:
+            detail["land_m2"] = _parse_number(terreno.group(1))
+
+        # --- Year built ---
+        year = re.search(r"\n(\d{4})\s*\n", md)
+        if year and 1900 < int(year.group(1)) < 2030:
+            detail["year_built"] = int(year.group(1))
+
+        # --- Location from subtitle ---
+        loc = re.search(r"######\s*([^,\n]+),\s*([^,\n]+),\s*([^,\n]+?)\s*Venezuela", md)
+        if loc:
+            detail["neighborhood"] = loc.group(1).strip().rstrip(".")
+            detail["city"] = loc.group(2).strip().rstrip(".")
+            detail["state"] = loc.group(3).strip().rstrip(".")
+
+        # --- Property type from breadcrumb ---
+        breadcrumb = re.findall(r"\d+\.\s*\[([^\]]+)\]", md)
+        if breadcrumb:
+            detail["property_type_raw"] = breadcrumb[0].lower()
+
+        # --- Description (full text between specs and features) ---
+        # Find the description block after the specs table
+        desc_match = re.search(
+            r"Estacionamientos\s*\n\s*\d+\s*\n(.+?)(?:\*\s*\*\s*\*|La propiedad cuenta con)",
+            md, re.DOTALL,
+        )
+        if desc_match:
+            desc = desc_match.group(1).strip()
+            desc = re.sub(r"\n{3,}", "\n\n", desc)
+            detail["description"] = desc[:5000]
+            detail["raw_description"] = desc[:10000]
+
+        # --- Realtor ---
+        realtor = re.search(
+            r"######\s*([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ]+)+)\s*\n",
+            md,
+        )
+        if realtor:
+            detail["realtor_name"] = realtor.group(1).strip()
+        # Phone: try tel: link first, then +58 pattern
+        phone = re.search(r"\[(0\d{10})\]\(tel:", md)
+        if not phone:
+            phone = re.search(r"tel:(\d{11,})", html)
+        if not phone:
+            phone = re.search(r"\+58(\d{10})", md)
+            if phone:
+                detail["realtor_phone"] = "0" + phone.group(1)
+        if phone and not detail.get("realtor_phone"):
+            detail["realtor_phone"] = phone.group(1)
+        email = re.search(r"([a-zA-Z0-9._%+-]+@century21\.com\.ve)", md)
+        if email:
+            detail["realtor_email"] = email.group(1)
+
+        # --- Images ---
+        imgs = list(set(re.findall(
+            r"https://cdn\.21online\.lat/venezuela/cache/awsTest1/rc/[^/]+/uploads/\d+/propiedades/[^\s\)\"]+\.jpg",
+            html,
+        )))
+        detail["all_images"] = [
+            {"url": u, "order": i, "source": "century21_cdn"}
+            for i, u in enumerate(imgs)
+        ]
+
+        # --- External ID ---
+        id_match = re.search(r"ID[:\s]*(\d+)", md)
+        if id_match:
+            detail["external_id"] = id_match.group(1)
+
+        # --- Features ---
+        feat_match = re.search(r"La propiedad cuenta con (.+?)(?:\n|$)", md)
+        if feat_match:
+            raw = feat_match.group(1).replace(" y ", ", ").split(", ")
+            detail["features"] = [
+                f.strip() for f in raw
+                if f.strip() and "no acepta" not in f.lower()
+            ]
+
+        # --- Construction details ---
+        constr: dict[str, str | int | float] = {}
+        if detail.get("land_m2"):
+            constr["terreno_m2"] = detail["land_m2"]
+        if detail.get("year_built"):
+            constr["ano_construccion"] = detail["year_built"]
+        if constr:
+            detail["construction_details"] = constr
+
+        logger.info(
+            f"C21 detail: {len(detail)} fields, "
+            f"images={len(imgs)}, "
+            f"realtor={detail.get('realtor_name', 'N/A')}"
+        )
+        return detail
+
+    except Exception as e:
+        logger.error(f"C21 detail error: {e}")
+        return {}
+
+
+@task(retries=2, retry_delay_seconds=10)
+async def fetch_listing_links(url: str, link_pattern: str, link_prefix: str) -> list[str]:
+    """Fetch a listing page and extract property detail links."""
+    logger = get_run_logger()
+    logger.info(f"Fetching listing links: {url}")
+    try:
+        from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode, BrowserConfig
+
+        bc = BrowserConfig(headless=True, java_script_enabled=True)
+        config = CrawlerRunConfig(
+            cache_mode=CacheMode.BYPASS,
+            page_timeout=25000,
+            delay_before_return_html=6.0,
+        )
+        async with AsyncWebCrawler(config=bc) as crawler:
+            result = await crawler.arun(url=url, config=config)
+
+        if not result.success:
+            return []
+
+        raw_links = list(set(re.findall(link_pattern, result.html)))
+        full_links = []
+        for link in raw_links:
+            full = link if link.startswith("http") else f"{link_prefix}{link}"
+            if full not in full_links:
+                full_links.append(full)
+
+        logger.info(f"Found {len(full_links)} property links")
+        return full_links
+
+    except Exception as e:
+        logger.error(f"Listing links error: {e}")
+        return []
 # ---------------------------------------------------------------------------
 
 
@@ -437,16 +656,20 @@ def normalize(raw: dict, site_name: str) -> dict:
             elif "área" in key_lower or "area" in key_lower:
                 area = _extract_area(val_str)
 
-    # Fall back to listing page fields
+    # Fall back to listing page fields or direct detail fields
     if not bedrooms:
-        bedrooms = int(raw["dormitorios"]) if raw.get("dormitorios") and raw["dormitorios"].strip().isdigit() else _extract_number(attrs, "habitaci|dormitorio|cuarto")
+        bedrooms = raw.get("bedrooms") or (int(raw["dormitorios"]) if raw.get("dormitorios") and str(raw["dormitorios"]).strip().isdigit() else _extract_number(attrs, "habitaci|dormitorio|cuarto"))
     if not bathrooms:
-        bathrooms = int(raw["banos"]) if raw.get("banos") and raw["banos"].strip().isdigit() else _extract_number(attrs, "ba[ñn]o")
+        bathrooms = raw.get("bathrooms") or (int(raw["banos"]) if raw.get("banos") and str(raw["banos"]).strip().isdigit() else _extract_number(attrs, "ba[ñn]o"))
     if not area:
-        superficie = raw.get("superficie", "")
-        area = _extract_area(superficie) if superficie else _extract_area(attrs)
-    if raw.get("estacionamiento") and raw["estacionamiento"].strip().isdigit():
-        parking = int(raw["estacionamiento"])
+        area = raw.get("area_m2")
+        if not area:
+            superficie = raw.get("superficie", "")
+            area = _extract_area(superficie) if superficie else _extract_area(attrs)
+    if not parking:
+        parking = raw.get("parking")
+        if not parking and raw.get("estacionamiento") and str(raw["estacionamiento"]).strip().isdigit():
+            parking = int(raw["estacionamiento"])
 
     result = {
         "title": title[:500],
@@ -472,17 +695,25 @@ def normalize(raw: dict, site_name: str) -> dict:
         "scraped_at": datetime.utcnow().isoformat(),
     }
 
-    # Add rentahouse-specific fields
+    # Add site-specific fields
     if raw.get("rah_code"):
         result["external_id"] = raw["rah_code"]
-    if raw.get("realtor_name"):
+    elif raw.get("external_id"):
+        result["external_id"] = raw["external_id"]
+    if raw.get("realtor_name") and not result.get("realtor_name"):
         result["realtor_name"] = raw["realtor_name"]
     if raw.get("realtor_whatsapp"):
         result["realtor_phone"] = raw["realtor_whatsapp"]
-    if raw.get("operation"):
+    elif raw.get("realtor_phone") and not result.get("realtor_phone"):
+        result["realtor_phone"] = raw["realtor_phone"]
+    if raw.get("realtor_email"):
+        result["realtor_email"] = raw["realtor_email"]
+    if raw.get("operation") and not result.get("operation"):
         result["operation"] = raw["operation"]
     if raw.get("construction_details"):
         result["construction_details"] = raw["construction_details"]
+    if raw.get("raw_description"):
+        result["description"] = raw["raw_description"][:5000] or result.get("description", "")
 
     return result
 
@@ -510,16 +741,49 @@ def validate(item: dict) -> bool:
 
 
 @task(retries=1)
-def is_duplicate(url: str) -> bool:
-    """Check if URL already exists in properties."""
+def is_duplicate(url: str) -> dict | None:
+    """Check if URL already exists. Returns existing property or None."""
     if not DIRECTUS_TOKEN or not url:
-        return False
-    resp = httpx.get(
-        f"{DIRECTUS_URL}/items/properties?filter[url][_eq]={url}&fields=id&limit=1",
-        headers=HEADERS,
-        timeout=10,
-    )
-    return len(resp.json().get("data", [])) > 0 if resp.is_success else False
+        return None
+    try:
+        resp = httpx.get(
+            f"{DIRECTUS_URL}/items/properties?filter[url][_eq]={url}&fields=id,price,price_history,status&limit=1",
+            headers=HEADERS,
+            timeout=10,
+        )
+        items = resp.json().get("data", []) if resp.is_success else []
+        return items[0] if items else None
+    except Exception:
+        return None
+
+
+@task
+def update_price_if_changed(existing: dict, new_price: float | None, new_item: dict) -> None:
+    """If price changed, update the property and append to price_history."""
+    if not existing or not new_price or not DIRECTUS_TOKEN:
+        return
+    old_price = existing.get("price")
+    if old_price and abs(float(old_price) - new_price) > 0.01:
+        history = existing.get("price_history") or []
+        history.append({"price": old_price, "date": datetime.utcnow().strftime("%Y-%m-%d")})
+        update = {
+            "price": new_price,
+            "price_history": history,
+            "last_verified_at": datetime.utcnow().isoformat(),
+        }
+        area = new_item.get("area_m2")
+        if area and area > 0:
+            update["price_per_m2"] = round(new_price / area, 2)
+        httpx.patch(
+            f"{DIRECTUS_URL}/items/properties/{existing['id']}",
+            json=update, headers=HEADERS, timeout=10,
+        )
+    else:
+        httpx.patch(
+            f"{DIRECTUS_URL}/items/properties/{existing['id']}",
+            json={"last_verified_at": datetime.utcnow().isoformat()},
+            headers=HEADERS, timeout=10,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -678,27 +942,78 @@ async def property_pipeline(
         pages = max_pages or config.get("max_pages", 5)
 
         for page in range(pages):
-            offset = page * config.get("items_per_page", 48)
-            # Build URL: some sites use offset, others use page number
-            pagination = config["pagination"]
-            if "{page}" in pagination:
-                url = config["base_url"] + pagination.format(page=page + 1)
+            listing_mode = config.get("listing_mode", "css")
+
+            if listing_mode == "links":
+                # Link-based: fetch listing page, extract links, scrape each detail
+                detail_links = await fetch_listing_links(
+                    config["base_url"],
+                    config["link_pattern"],
+                    config.get("link_prefix", ""),
+                )
+                # Limit to max items per page
+                max_items = config.get("items_per_page", 100)
+                detail_links = detail_links[:max_items]
+                stats["fetched"] += len(detail_links)
+
+                for detail_url in detail_links:
+                    # Fetch detail page with site-specific parser
+                    parser = config.get("detail_parser", "default")
+                    if parser == "century21":
+                        raw = await fetch_detail_century21(detail_url)
+                    else:
+                        raw = await fetch_detail_page(detail_url)
+
+                    if not raw:
+                        stats["errors"] += 1
+                        continue
+
+                    raw["url"] = detail_url
+
+                    # Normalize, validate, dedup, enrich, store
+                    item = normalize(raw, site_name)
+                    if not validate(item):
+                        stats["errors"] += 1
+                        continue
+                    stats["valid"] += 1
+
+                    existing = is_duplicate(item.get("url", ""))
+                    if existing:
+                        stats["duplicates"] += 1
+                        update_price_if_changed(existing, item.get("price"), item)
+                        continue
+
+                    item = enrich(item)
+                    property_id = store(item)
+                    if not property_id:
+                        stats["errors"] += 1
+                        continue
+                    stats["saved"] += 1
+
+                # Only 1 page for link-based (no pagination)
+                break
+
             else:
-                url = config["base_url"] + pagination.format(offset=offset)
+                # CSS-based: extract items from listing page with CSS selectors
+                offset = page * config.get("items_per_page", 48)
+                pagination = config["pagination"]
+                if "{page}" in pagination:
+                    url = config["base_url"] + pagination.format(page=page + 1)
+                else:
+                    url = config["base_url"] + pagination.format(offset=offset)
 
-            # Stage 1+2: Fetch + Extract
-            raw_items = await fetch_and_extract(url, config)
-            stats["fetched"] += len(raw_items)
+                raw_items = await fetch_and_extract(url, config)
+                stats["fetched"] += len(raw_items)
 
-            for raw in raw_items:
-                # Stage 2.5: Fetch detail page if configured
-                if config.get("scrape_details") and raw.get("url"):
-                    detail_url = raw["url"]
-                    if not detail_url.startswith("http"):
-                        detail_url = "https://rentahouse.com.ve" + detail_url
-                    detail = await fetch_detail_page(detail_url)
-                    if detail:
-                        raw.update(detail)
+                for raw in raw_items:
+                    # Fetch detail page if configured
+                    if config.get("scrape_details") and raw.get("url"):
+                        detail_url = raw["url"]
+                        if not detail_url.startswith("http"):
+                            detail_url = "https://rentahouse.com.ve" + detail_url
+                        detail = await fetch_detail_page(detail_url)
+                        if detail:
+                            raw.update(detail)
 
                 # Stage 3: Normalize
                 item = normalize(raw, site_name)
@@ -709,9 +1024,11 @@ async def property_pipeline(
                     continue
                 stats["valid"] += 1
 
-                # Stage 5: Dedup
-                if is_duplicate(item.get("url", "")):
+                # Stage 5: Dedup + Price tracking
+                existing = is_duplicate(item.get("url", ""))
+                if existing:
                     stats["duplicates"] += 1
+                    update_price_if_changed(existing, item.get("price"), item)
                     continue
 
                 # Stage 6: Enrich
