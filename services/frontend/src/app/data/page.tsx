@@ -13,6 +13,7 @@ import {
   Mail,
   Globe,
   Activity,
+  Home,
   ChevronRight,
   ChevronDown,
   RefreshCw,
@@ -44,6 +45,7 @@ const COLLECTIONS: Array<{ name: string; icon: typeof Database; color: string; l
   { name: "emails", icon: Mail, color: "text-pink-400", label: "Emails" },
   { name: "scraped_data", icon: Globe, color: "text-yellow-400", label: "Datos Scrapeados" },
   { name: "events", icon: Activity, color: "text-red-400", label: "Eventos" },
+  { name: "properties", icon: Home, color: "text-teal-400", label: "Propiedades" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -84,6 +86,13 @@ function CollectionFolder({ col, data, expanded, onToggle }: {
   }
 
   function getItemTitle(item: Record<string, unknown>): string {
+    // Properties: show operation + price + city
+    if (item.realtor_name || item.external_id) {
+      const op = (item.operation as string) || "";
+      const price = item.price ? `$${Number(item.price).toLocaleString()}` : "";
+      const city = (item.neighborhood as string) || (item.city as string) || "";
+      return [op.toUpperCase(), price, city].filter(Boolean).join(" | ") || `ID ${item.id}`;
+    }
     return (
       (item.first_name ? `${item.first_name} ${item.last_name || ""}` : "") ||
       (item.title as string) ||
