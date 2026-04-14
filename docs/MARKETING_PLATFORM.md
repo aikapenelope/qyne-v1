@@ -1,0 +1,587 @@
+# QYNE — Plataforma de Marketing Multi-Marca
+
+> Documento de producto. Define que estamos construyendo, por que,
+> y como se conecta todo. Este es el documento de referencia.
+
+---
+
+## Vision
+
+Un sistema centralizado donde generas contenido, investigas mercados,
+publicas en redes, trackeas leads, y manejas soporte de todas tus
+empresas (Whabi, Docflow, Aurora y futuras) desde un solo dashboard.
+
+No es un SaaS para vender. Es tu herramienta interna de marketing.
+
+---
+
+## Arquitectura
+
+```
+Tu (NEXUS dashboard)
+    |
+    v
+AgNO ---- razonamiento, generacion, decisiones
+    |
+    |-- tools: Directus REST, Prefect API, Postiz CLI
+    |
+Prefect -- flujos deterministicos, schedules, ETL, scraping
+    |
+    |-- tasks: httpx, Crawl4AI, pg_dump, Voyage AI
+    |
+Directus - data layer, triggers, webhooks, Kanban, CRM
+    |
+    |-- flows: on-create -> webhook, on-update -> notify
+    |
+Postiz --- publicacion social, OAuth, 30+ plataformas, analytics
+```
+
+Cuatro componentes, cero redundancia:
+- **AgNO** decide (IA)
+- **Prefect** ejecuta (deterministico)
+- **Directus** almacena (data + UI)
+- **Postiz** publica (social media)
+
+---
+
+## Las 32 Capacidades
+
+### BLOQUE 1: GENERACION DE CONTENIDO
+
+#### 1. Content Production Pipeline
+
+Workflow completo de tendencia a contenido listo.
+
+**Flujo:** Trend Scout → Compact Brief → Scriptwriter (3 variantes) → Creative Director (evaluacion) → Tu eliges.
+
+**Agentes:**
+- **Trend Scout** — Investiga tendencias de las ultimas 48h. Max 3 tool calls. Produce brief con hooks en espanol, relevance score, fuentes. Solo topics con 2+ fuentes credibles y score 7+.
+- **Scriptwriter** — 3 variantes de storyboard por brief: emocional, data-driven, provocativo. 5-6 escenas, max 15 palabras por oracion. Guarda como JSON.
+- **Creative Director** — Evalua las 3 variantes: mood, flujo escena por escena, momento mas fuerte, debilidad. Recomienda la mejor con justificacion.
+- **Analytics Agent** — Post-publicacion. Reportes semanales: top/bottom posts, analisis por pilar y hook type, 3 recomendaciones data-driven.
+
+**Output:** 3 guiones listos con evaluacion creativa. Tu decides cual producir.
+
+#### 2. Video Programatico
+
+Templates profesionales pre-disenados que se llenan con JSON de contenido.
+
+**Estrategia:** La calidad visual viene del template, no del agente. Un disenador crea templates de alta calidad una vez. Los agentes solo generan el contenido (hook, features, stats, CTA).
+
+**Templates target:**
+- PromoProduct — Video promocional de producto
+- DataStory — Video con datos/estadisticas
+- Explainer — Video explicativo paso a paso
+- TikTok/Reels — Formato vertical con captions
+
+**Opciones de rendering:**
+- Remotion (React, licencia comercial $100+/mes)
+- Rendervid (open source, JSON nativo, MCP server integrado)
+- Creatomate (API REST, template editor visual)
+
+**Colores por marca:** Whabi (#25D366), Docflow (#e94560), Aurora (#8B5CF6). Automaticos segun campo `brand`.
+
+**Flujo:** Disenador crea template → Template se registra con JSON schema → Content Team genera JSON → Rendering automatico → Video listo.
+
+#### 3. Creative Studio
+
+Team de 3 agentes en modo route para generacion de media.
+
+- **Image Generator** — Imagenes AI desde prompts. Ratio 1:1 para social, 9:16 para stories. Prompts detallados: subject, style, lighting, composition, mood.
+- **Video Generator** — Videos cortos desde imagenes y prompts. Transiciones suaves, estilo consistente.
+- **Media Describer** — Describe media para accesibilidad y catalogacion. Subject, setting, colores, mood, texto visible.
+
+**Uso:** Thumbnails, covers, variantes para A/B testing, catalogacion automatica.
+
+#### 4. Copywriting
+
+Copywriter ES para todo el copy en espanol LATAM neutral.
+
+**Formatos:** Landing pages, email sequences, ad copy, social posts, descripciones de producto.
+
+**Reglas:** Profesional pero cercano. Tu para informal, usted para formal. Sin clickbait, sin exageracion, sin claims sin datos. Cita fuentes siempre.
+
+---
+
+### BLOQUE 2: SEO Y POSICIONAMIENTO EN AI
+
+#### 5. SEO Content Workflow
+
+Pipeline de articulos optimizados para Google Y para motores AI.
+
+**Flujo:** Keyword Researcher → Article Writer → SEO Auditor → Loop (max 2 rondas hasta veredicto PUBLISH).
+
+**Agentes:**
+- **Keyword Researcher** — Encuentra topics con alto potencial GEO. Busca gaps donde no existe buen listicle en espanol. Output estructurado: topic, target query, keywords primario/secundarios, competencia, datos disponibles, angulo unico para nuestros productos.
+- **Article Writer** — Articulos de 1500-2500 palabras en espanol. Estructura obligatoria:
+  1. Quick Answer (primeros 200 words) — lista numerada, extractable por AI
+  2. Introduccion (200-300 words) — por que importa ahora, 2-3 stats con URLs
+  3. Entries detallados (300-500 words cada uno) — features, limitaciones, precio
+  4. Tabla comparativa — markdown con diferenciadores clave
+  5. How to Choose (200 words) — framework de decision
+  6. FAQ (4-5 preguntas) — matching queries exactas de ChatGPT/Perplexity
+- **SEO Auditor** — Checklist GEO (Quick Answer, listicle, evidence density, FAQ, freshness) + SEO (titulo <60 chars, meta description, H2/H3, tabla, >1500 words). Score X/100. Veredicto: PUBLISH / REVISE / REWRITE.
+
+**Output:** Articulo MDX con frontmatter, listo para publicar en blog.
+
+#### 6. GEO/AEO (Generative Engine Optimization)
+
+Optimizacion para que ChatGPT, Perplexity, Gemini y AI Overviews citen tu contenido.
+
+**Integrado en todos los agentes de contenido via skill seo-geo:**
+- Quick Answer blocks en primeros 200 words (lo que AI extrae)
+- Formato listicle numerado (74.2% de citaciones AI vienen de listicles)
+- FAQ Section matching queries exactas de usuarios en AI engines
+- Schema Markup triple: Article + ItemList + FAQPage JSON-LD
+- Freshness protocol: actualizar cada 7-14 dias, fechas visibles
+- Palabras prohibidas: "premier", "lider", "revolucionario" (AI filtra marketing fluff)
+- Palabras obligatorias: numeros especificos, fechas, fuentes con URL
+
+**Distribucion post-publicacion:**
+- Reddit (46.7% de citaciones de Perplexity vienen de Reddit)
+- LinkedIn post con data points clave
+- Quora answer linkeando al articulo
+
+#### 7. SEO Strategy
+
+SEO Strategist como agente dedicado a estrategia, no ejecucion.
+
+**Capacidades:** Keyword gaps entre nuestro contenido y competidores. AI citation potential por topic. Competitor content analysis. Estrategia unificada para las 3 marcas.
+
+**Output:** Plan de contenido mensual con topics priorizados por impacto GEO.
+
+---
+
+### BLOQUE 3: SOCIAL MEDIA
+
+#### 8. Posts Adaptados por Plataforma
+
+Un agente por plataforma, cada uno optimizado para su algoritmo.
+
+- **Instagram Post Agent** — Reels/Stories. Visual hooks, trending audio, carousels. Hashtags 10-15 (mix broad + niche). Captions obligatorios (85% mira sin sonido). Sweet spot: 30-45s.
+- **Twitter/X Post Agent** — Threads 5-7 tweets. Hooks data-driven, preguntas de engagement. Max 280 chars/tweet. Datos concretos, no opiniones.
+- **LinkedIn Post Agent** — Posts profesionales. Insights de industria, case studies, analisis. Line breaks para legibilidad. Tono autoridad.
+
+#### 9. Auditoria de Contenido Social
+
+Social Auditor evalua cada post antes de publicar.
+
+**Checklist:** Platform fit, engagement potential, hashtag quality, CTA clarity, timing recomendado. Score 1-10 con mejoras especificas por post.
+
+#### 10. Calendario de Contenido
+
+Social Media Planner genera calendarios semanales.
+
+**Estructura:** Post type, topic, hook, CTA, hashtags por plataforma. 3 posts/dia. Rotacion de pilares (nunca el mismo pilar 2 veces seguidas). Lunes-viernes educativo/tendencias. Sabado behind-the-scenes. Domingo recap semanal.
+
+**Output:** JSON estructurado por dia con todos los campos listos.
+
+#### 11. Publicacion via Postiz
+
+Postiz self-hosted como capa de publicacion.
+
+**Integracion:**
+1. Agentes generan contenido → Directus `social_posts` (status="draft")
+2. Revision humana en Directus/NEXUS → status="approved"
+3. Directus Flow trigger → Postiz API o CLI
+4. Postiz publica en 30+ plataformas
+5. Analytics de Postiz → Directus `social_analytics`
+
+**CLI para automatizacion directa:**
+```bash
+postiz posts:create \
+  -c "Contenido del post" \
+  -m "imagen.png" \
+  -s "2026-04-15T09:00:00Z" \
+  -i "twitter-id,linkedin-id,instagram-id"
+```
+
+**Plataformas:** X, LinkedIn, Instagram, TikTok, YouTube, Reddit, Bluesky, Threads, Telegram, Discord, Pinterest, Mastodon, Medium, WordPress, Hashnode, Dev.to, y 14 mas.
+
+---
+
+### BLOQUE 4: INVESTIGACION E INTELIGENCIA
+
+#### 12. Deep Research (con agentes)
+
+Para investigaciones ad-hoc desde el chat.
+
+**Flujo:** Research Planner → scouts paralelos (Tavily, Exa, Firecrawl, WebSearch) → Quality Gate (min 200 chars) → Research Synthesizer.
+
+**Cada scout tiene un angulo diferente** (sin overlap). El planner asigna queries especificas a cada uno segun sus fortalezas.
+
+**Output:** Reporte markdown con Executive Summary, Key Findings (con URLs), Analysis, Gaps, Recommendations, Sources. En espanol para temas LATAM.
+
+**Costo:** ~15,000-50,000 tokens por investigacion.
+
+#### 13. Research sin Tokens (Crawler-First)
+
+Para investigaciones recurrentes o de gran volumen.
+
+**Fase 1 — Recoleccion (0 tokens):**
+Prefect flow con Crawl4AI:
+- Adaptive Crawling con KeywordRelevanceScorer (se detiene cuando tiene suficiente info)
+- BestFirstCrawling (prioriza paginas mas relevantes)
+- CSS/XPath extraction para datos estructurados
+- Almacena en Directus `research_raw`
+- Indexa chunks en LanceDB
+
+**Fase 2 — Sintesis (~3,000 tokens):**
+Un agente lee los datos ya recolectados de Directus/LanceDB y sintetiza el reporte.
+
+**Ahorro:** 90% menos tokens que el approach con agentes.
+
+**Uso:** Monitoreo semanal de competidores, tracking de tendencias, investigacion de mercado recurrente.
+
+#### 14. Client/Prospect Research
+
+Investigacion rapida de un prospecto o cliente.
+
+**Flujo:** Parallel(Web Research + Knowledge Base) → Synthesis Agent → ResearchReport (Pydantic structured output).
+
+**Uso:** Antes de una llamada de ventas, investigar al prospecto combinando datos publicos con tu knowledge base interna.
+
+#### 15. Competitor Intelligence
+
+Analisis competitivo paralelo con sintesis accionable.
+
+**Flujo:** Parallel(Content Scout + Pricing Scout + Reviews Scout) → Synthesizer.
+
+- **Content Scout** — Estrategia de contenido del competidor: topics, frecuencia, engagement, gaps donde no publican.
+- **Pricing Scout** — Pricing pages: planes, precios, features por tier, free trial.
+- **Reviews Scout** — Reviews de G2, Capterra, ProductHunt, Reddit. Praise comun, quejas comunes, feature requests.
+- **Synthesizer** — Landscape overview, tabla de pricing, gaps de contenido (oportunidades para nosotros), sentiment, 3-5 acciones.
+
+**Frameworks incluidos:** Quick Assessment, SWOT, Feature Matrix, Positioning Map.
+
+#### 16. Market Intelligence
+
+Skill transversal que ensena a todos los agentes de investigacion.
+
+- Jerarquia de fuentes: SEC filings > Statista/Gartner > Crunchbase > News > Blogs > Social
+- Query patterns para market size, competitor analysis, pricing intel, datos LATAM
+- Extraccion estandarizada: metrica, valor, fuente, fecha, scope
+- Output: MARKET_DATA, COMPETITIVE_LANDSCAPE, TRENDS, GAPS, CONFIDENCE
+
+---
+
+### BLOQUE 5: ANALYTICS Y PERFORMANCE
+
+#### 17. Analytics de Contenido
+
+Analytics Agent genera reportes semanales de performance social.
+
+**Metricas por plataforma:**
+
+| Plataforma | Good | Great | Viral |
+|------------|------|-------|-------|
+| IG Reels views (24h) | 500+ | 5,000+ | 50,000+ |
+| IG engagement rate | >3% | >6% | >10% |
+| TikTok views (24h) | 1,000+ | 10,000+ | 100,000+ |
+| TikTok completion rate | >30% | >50% | >70% |
+
+**Reporte semanal:** Total posts, total views, avg engagement, follower growth, best platform, top 3 posts con analisis de por que funcionaron, bottom 3 con diagnostico, performance por pilar, performance por tipo de hook, 3 recomendaciones para la semana siguiente.
+
+**Reglas de optimizacion:**
+- 3-second rule: si retention cae bajo 50% a los 3s, el hook fallo
+- Engagement > Views: 1000 views con 10% engagement > 10000 views con 1%
+- Saves = valor (contenido de referencia)
+- Shares = resonancia emocional
+- Consistency > virality
+
+#### 18. Dash (Business Analytics)
+
+Agente de analytics que responde preguntas de negocio.
+
+**Por producto:**
+- Whabi: leads, conversion rate, response time, revenue
+- Docflow: documents processed, compliance rate, active clinics
+- Aurora: active users, voice commands/day, retention, churn
+
+**Output siempre:** El numero especifico + tendencia (up/down/stable vs periodo anterior) + que significa + accion recomendada.
+
+**Herramientas:** Calculator, Python, Directus MCP (lee cualquier coleccion).
+
+#### 19. Lead Scoring
+
+Prefect flow diario que recalcula scores.
+
+| Accion | Puntos |
+|--------|--------|
+| Visita pricing page | +5 |
+| Responde email | +3 |
+| Agenda demo | +10 |
+| Pregunta por precio en WhatsApp | +7 |
+| No responde en 14 dias | -5 |
+| Abre ticket de soporte (ya es cliente) | +2 |
+
+**Automatizaciones:**
+- Score >= 7 → crear deal automaticamente en pipeline de ventas
+- Score >= 9 → notificacion urgente al equipo
+
+#### 20. Sentiment Analysis
+
+Prefect flow diario. Keyword-based (sin LLM, sin costo). Analiza conversaciones de soporte y clasifica sentimiento. Alimenta dashboards en Directus.
+
+---
+
+### BLOQUE 6: CRM Y VENTAS
+
+#### 21. Pipeline de Ventas (Kanban)
+
+Coleccion `deals` en Directus con layout Kanban.
+
+**Stages:** Lead → Contactado → Demo Agendada → Propuesta Enviada → Negociacion → Cerrado Ganado / Cerrado Perdido
+
+**Cada deal:** contact_id, product, stage, value (USD), next_action, next_action_date, assigned_to.
+
+**Automatizaciones (Directus Flows + Prefect):**
+- Deal sin actividad 3 dias → notificacion follow-up
+- Deal en "Propuesta Enviada" 7 dias → recordatorio automatico
+- Nuevo lead score >= 7 → crear deal
+- Deal cerrado ganado → trigger onboarding
+
+#### 22. Soporte Multi-Producto (Kanban)
+
+Coleccion `support_tickets` con Kanban por producto.
+
+**Stages:** Nuevo → En Progreso → Esperando Cliente → Resuelto → Cerrado
+
+**Cada ticket:** product (whabi/docflow/aurora), priority (critical/high/medium/low), stage, assigned_to, sla_deadline, resolution_notes.
+
+**Automatizaciones:**
+- Ticket critical sin respuesta 1h → escalacion
+- Ticket "Esperando Cliente" 48h → recordatorio al cliente
+- Ticket resuelto → encuesta de satisfaccion via WhatsApp
+
+#### 23. WhatsApp Support Team
+
+Router que dirige mensajes al agente correcto por producto.
+
+- **Whabi Support** — Plans $49/$149/custom. Template approval, webhook config, contact import.
+- **Docflow Support** — Plans $99/$249/custom. Document upload, permissions, retention.
+- **Aurora Support** — Plans $0/$29/$79. Mic permissions, PWA install, voice recognition.
+- **General Support** — Fallback para consultas generales, partnerships, careers.
+
+**Cada interaccion automaticamente:**
+- Guarda contacto (`save_contact`)
+- Registra ticket (`log_support_ticket`)
+- Registra conversacion con intent, sentiment, lead_score (`log_conversation`)
+- Crea task de follow-up si es de alto valor
+- Escala a humano si es critico (`escalate_to_human`)
+
+#### 24. Invoice y Billing
+
+Invoice Agent con pricing de las 3 marcas.
+
+**Pricing:**
+- Whabi: Starter $49/mes, Pro $149/mes, Enterprise custom
+- Docflow: Basic $99/mes, Pro $249/mes, Enterprise custom
+- Aurora: Free $0, Pro $29/mes, Business $79/mes
+
+**HITL obligatorio:** `confirm_payment` requiere aprobacion humana (@approval). Nunca confirma un pago sin intervencion humana. Registra cada interaccion de billing como ticket.
+
+#### 25. Email
+
+Email Agent redacta y envia emails profesionales.
+
+**Reglas de produccion:**
+- HITL: `requires_confirmation=True` — siempre muestra draft completo antes de enviar
+- Nunca envia sin confirmacion explicita del usuario
+- Si EmailTools no esta configurado, genera draft como texto para copy-paste
+- Espanol LATAM neutral
+
+#### 26. Scheduling y Recordatorios
+
+Scheduler Agent crea tareas y recordatorios en Directus CRM.
+
+- "Recuerdame llamar a Juan el viernes" → task en Directus
+- "Que tengo pendiente esta semana?" → lista tasks
+- Timezone America/Bogota por defecto
+- HITL: `requires_confirmation=True` solo para tasks con deadline < 24h
+
+#### 27. Onboarding de Clientes
+
+Onboarding Agent guia nuevos clientes paso a paso.
+
+- Identifica producto (Whabi/Docflow/Aurora)
+- UN paso a la vez, nunca dump de informacion
+- Busca en knowledge base para respuestas especificas
+- Asume cero conocimiento tecnico
+- Usa skills especificos por producto (whabi, docflow, aurora)
+
+---
+
+### BLOQUE 7: KNOWLEDGE Y DATA
+
+#### 28. Website Crawler
+
+Prefect flow para crawl profundo de sitios web.
+
+**Pipeline:** Discover (BFS/DFS/BestFirst) → Fetch (Crawl4AI con JS rendering) → Chunk (por headers, max 500 tokens) → Classify (27 keywords) → Dedup → Store (Directus `documents`) → Index (LanceDB con Voyage AI embeddings).
+
+**Uso:** Crawlear documentacion de competidores, blogs de industria, sitios de referencia. Todo queda indexado y buscable por agentes via RAG.
+
+**Parametros:** url, max_pages, max_depth, include_paths, exclude_paths, index_in_knowledge.
+
+#### 29. Knowledge Base (RAG)
+
+LanceDB local con Voyage AI embeddings.
+
+- Hybrid search (vector + keyword)
+- Indexacion automatica de PDFs, TXT, MD, CSV, JSON
+- Knowledge Agent dedicado para consultas
+- Agentic RAG: el agente decide cuando buscar en knowledge (no pre-carga todo)
+
+**Flujo de indexacion:** Documento → Docling parse → Directus `documents` → Voyage AI embeddings → LanceDB chunks → Agentes buscan semanticamente.
+
+#### 30. Data Operations
+
+Prefect flows para mantenimiento de datos:
+
+- **data_sync** — Sincroniza entre colecciones con field mapping
+- **data_cleanup** — Encuentra duplicados y datos viejos (solo reporta)
+- **dedup_merger** — Merge inteligente de contactos duplicados por email
+- **data_enricher** — Campos computados: clasificacion de dominio email, boost de lead score
+- **export_csv** — Exporta cualquier coleccion a CSV en RustFS
+- **import_csv** — Importa CSV a cualquier coleccion
+
+---
+
+### BLOQUE 8: PRODUCT DEVELOPMENT
+
+#### 31. Product Dev Team
+
+Team coordinado para analisis de features.
+
+- **Product Manager** — RICE scoring (Reach, Impact, Confidence, Effort). Prioriza roadmap, escribe specs.
+- **UX Researcher** — Valida desde perspectiva usuario. Pain points, accesibilidad, learning curve, edge cases.
+- **Technical Writer** — Documentacion: overview → prerequisites → step-by-step → troubleshooting. En espanol.
+
+**Uso:** "Analiza si deberiamos agregar [feature] a Whabi" → PM analiza, UX valida, Tech Writer documenta.
+
+#### 32. Code Review
+
+Code Review Agent con razonamiento multi-paso (2-5 steps).
+
+**Checklist:** SQL injection, XSS, hardcoded secrets, race conditions, error handling, edge cases.
+
+**Output:** SEVERITY (critical/warning/info), ISSUE (file:line), FIX (codigo especifico), WHY (impacto).
+
+---
+
+## Decisiones de Arquitectura
+
+### Context entre Agentes
+
+**Problema:** Cuando un agente pasa output al siguiente, se pierde el *por que* de las decisiones.
+
+**Solucion:** Cada agente emite un artefacto Pydantic estructurado:
+
+```python
+class StepArtifact(BaseModel):
+    content: str                    # Output principal
+    decisions: list[Decision]       # Que se decidio y por que
+    constraints: list[str]          # Restricciones para el siguiente step
+    quality_signals: dict           # Metricas de calidad
+    sources: list[str]              # URLs/referencias
+
+class Decision(BaseModel):
+    what: str                       # Que se decidio
+    why: str                        # Razonamiento
+    alternatives_rejected: list[str] # Que se descarto
+    constraint_for_next: str        # Implicacion para el siguiente agente
+```
+
+Funciones de compaction entre steps extraen solo lo relevante, preservando decisions y constraints.
+
+### Human-in-the-Loop por Nivel de Riesgo
+
+| Agente | Riesgo | Patron |
+|--------|--------|--------|
+| Invoice Agent | ALTO | `@approval` + `requires_confirmation` |
+| Email Agent | ALTO | `requires_confirmation` (muestra draft) |
+| Scheduler Agent | MEDIO | `requires_confirmation` solo deadline < 24h |
+| Support Agents | MEDIO | `@approval(type="audit")` (registra, no bloquea) |
+| Social Media | MEDIO | Draft en Directus, aprobacion humana separada |
+| Automation Agent | MEDIO | `requires_confirmation` para flows destructivos |
+| Content Agents | BAJO | Sin HITL (revision humana post-generacion) |
+| Research Agents | BAJO | Sin HITL (solo reportes informativos) |
+
+Timeout: Email 30min → guardar draft. Invoice 1h → task urgente. Escalation 2h → re-escalar.
+
+Audit trail: toda accion HITL se registra en Directus `agent_audit_log`.
+
+### Publicacion Social
+
+AgNO genera → Directus (draft) → revision humana → Directus Flow → Postiz (30+ plataformas).
+
+Postiz self-hosted en Docker. CLI disponible para automatizacion directa. Analytics de vuelta a Directus.
+
+### Research sin Tokens
+
+Investigaciones recurrentes: Crawl4AI (Adaptive Crawling, 0 tokens) via Prefect → Directus → LLM solo para sintesis final (~3K tokens).
+
+Investigaciones ad-hoc: Deep Research Workflow con agentes (~15-50K tokens).
+
+### CRM
+
+Directus con layouts Kanban nativos. Deals pipeline para ventas. Support tickets por producto. Lead scoring automatico con deal creation. Follow-up automatizado via Directus Flows.
+
+---
+
+## Stack Tecnico
+
+| Componente | Tecnologia | Rol |
+|-----------|-----------|-----|
+| Agentes | AgNO (Python) | 42 agentes, 7 teams, 7 workflows, 24 skills |
+| Orquestacion | Prefect | Flows deterministicos, schedules, ETL |
+| Data Layer | Directus + PostgreSQL | CRM, CMS, REST/GraphQL, Kanban, Flows |
+| Knowledge | LanceDB + Voyage AI | Vector search, RAG, embeddings |
+| Social Media | Postiz (self-hosted) | 30+ plataformas, OAuth, analytics |
+| Scraping | Crawl4AI | Web crawling, CSS/XPath extraction |
+| Storage | RustFS | S3-compatible object storage |
+| Cache | Redis | Directus cache |
+| Frontend | Next.js + CopilotKit | Dashboard NEXUS (AG-UI) |
+| Monitoring | Uptime Kuma | Health checks |
+| Proxy | Traefik | Reverse proxy + SSL |
+| Modelos | MiniMax (tools), Groq (fast), OpenRouter (reasoning), Voyage AI (embeddings) |
+
+---
+
+## Prioridad de Activacion
+
+### Fase 1 — Contenido (semanas 1-2)
+1. Content Production Workflow (trend → script → review)
+2. SEO Content Workflow (keyword → article → audit loop)
+3. Copywriter ES
+
+### Fase 2 — Social Media (semanas 3-4)
+4. Social Media Workflow (IG + X + LinkedIn + audit)
+5. Social Media Planner (calendarios)
+6. Postiz setup + integracion con Directus
+
+### Fase 3 — CRM y Ventas (semanas 5-6)
+7. Pipeline de ventas Kanban en Directus
+8. Soporte Kanban por producto
+9. Lead scoring mejorado
+10. WhatsApp Support Team
+
+### Fase 4 — Investigacion (semanas 7-8)
+11. Deep Research Workflow
+12. Crawler-first research (Prefect + Crawl4AI)
+13. Competitor Intelligence Workflow
+14. Marketing LATAM Team (coordinacion)
+
+### Fase 5 — Automatizacion (semanas 9-10)
+15. Video programatico (templates + rendering)
+16. Email Agent con HITL
+17. Invoice Agent con HITL
+18. Scheduler Agent
+19. Onboarding Agent
+
+### Fase 6 — Analytics y Optimizacion (semanas 11-12)
+20. Analytics Agent + reportes semanales
+21. Dash (business analytics)
+22. Sentiment analysis
+23. AI Perception Monitoring (como AI engines hablan de tus marcas)
