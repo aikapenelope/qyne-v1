@@ -180,7 +180,7 @@ invoice_agent (agents/utility/agents.py L368-398)
 **Tools:** FileTools, NanoBananaTools (condicional), Directus MCP create-item,
 save_chat_to_directus, save_chat_to_knowledge
 
-**Skills:** content-strategy, seo-geo, copywriting-es, remotion-video, video-hooks
+**Skills:** content-strategy, seo-geo, copywriting-es
 
 ### 1.3 Crear `services/agno/agents/analyst.py`
 
@@ -405,18 +405,12 @@ AdaptiveCrawling y KeywordRelevanceScorer.
 
 ## Fase 6 — Automatizacion (semanas 11-12)
 
-### 6.1 Video programatico
-
-- Evaluar Rendervid vs Remotion
-- Crear templates profesionales (trabajo de diseno, no de codigo)
-- Writer genera JSON de contenido → rendering con template
-
-### 6.2 Email con HITL
+### 6.1 Email con HITL
 
 Writer con instrucciones de email + `requires_confirmation=True`.
 Invocado desde Prefect task o desde NEXUS chat.
 
-### 6.3 Invoice con HITL
+### 6.2 Invoice con HITL
 
 Writer con instrucciones de invoice + `@approval` + `requires_confirmation=True`.
 Usa confirm_payment tool (ya tiene HITL).
@@ -513,5 +507,5 @@ agent_os = AgentOS(
 | 3 | Growth Strategist produce plan semanal | Plan coherente cada lunes |
 | 4 | Deals en pipeline, tickets con SLA | >0 deals, SLA compliance >80% |
 | 5 | Deep research via Prefect | Reporte completo en <5 min |
-| 6 | Video renderizado desde JSON | 1 video/dia por marca |
+| 6 | Email/Invoice con HITL funcionando | Drafts requieren aprobacion |
 | Final | main.py con 8 agentes | 0 errores de import, dashboard funcional |

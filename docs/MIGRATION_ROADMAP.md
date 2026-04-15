@@ -144,8 +144,8 @@ Mismo agente, diferentes instrucciones. Prefect decide cuando y como invocarlo.
 
 #### 2. Writer
 
-**Reemplaza:** scriptwriter, article_writer, copywriter_es, ig_post_agent,
-twitter_post_agent, linkedin_post_agent, technical_writer, seo_auditor (8 agentes)
+**Reemplaza:** article_writer, copywriter_es, ig_post_agent,
+twitter_post_agent, linkedin_post_agent, technical_writer, seo_auditor (7 agentes)
 
 **Tools:** FileTools, Directus MCP (create-item)
 
@@ -276,7 +276,7 @@ Se mantiene igual. Asistente personal con memoria agentiva.
 | competitor_reviews_scout | **Researcher** (instrucciones de reviews) | Prefect |
 | competitor_synthesizer | **Analyst** (instrucciones de sintesis competitiva) | Prefect |
 | keyword_researcher | **Researcher** (instrucciones de keywords) | Prefect |
-| scriptwriter | **Writer** (instrucciones de scripts) | Prefect |
+| scriptwriter | Eliminado (video descartado) | - |
 | article_writer | **Writer** (instrucciones de articulos SEO) | Prefect |
 | copywriter_es | **Writer** (instrucciones de copy LATAM) | Prefect |
 | ig_post_agent | **Writer** (instrucciones de Instagram) | Prefect |
@@ -292,7 +292,7 @@ Se mantiene igual. Asistente personal con memoria agentiva.
 | product_manager | **Analyst** (instrucciones de RICE scoring) | Prefect |
 | ux_researcher | **Analyst** (instrucciones de UX) | Prefect |
 | image_generator | **Writer** (con NanoBananaTools) | Prefect |
-| video_generator | **Writer** (instrucciones de video) | Prefect |
+| video_generator | Eliminado (video descartado) | - |
 | media_describer | **Analyst** (instrucciones de descripcion) | Prefect |
 | automation_agent | Eliminado (Prefect ES la automatizacion) | - |
 | email_agent | **Writer** (instrucciones de email, HITL) | Prefect |
@@ -305,10 +305,12 @@ Se mantiene igual. Asistente personal con memoria agentiva.
 | aurora_support_agent | **Support Agent** (skill aurora) | AgNO real-time |
 | general_support_agent | **Support Agent** (skill general) | AgNO real-time |
 
-**Eliminados completamente (3):**
+**Eliminados completamente (5):**
 - `research_planner` — Prefect planifica los steps, no un agente
 - `automation_agent` — Prefect ES la automatizacion, no necesita un agente que llame a Prefect
 - `scheduler_agent` — Directus Flows + Prefect schedules reemplazan esto
+- `scriptwriter` — Video descartado (costo alto, calidad inconsistente)
+- `video_generator` — Video descartado
 
 **Teams eliminados (6 de 7):**
 - `nexus_master` — Eliminado. NEXUS chat usa routing simple, no un team de 42 agentes

@@ -44,10 +44,9 @@ con instrucciones de Instagram es mas confiable que un Instagram Post Agent dedi
 
 ## Las 35 capacidades (9 bloques)
 
-**Bloque 1 — Contenido (caps 1-4)**
-Content Production Pipeline (trend → 3 scripts → evaluacion), video programatico
-(templates profesionales + JSON), Creative Studio (imagenes, videos, catalogacion),
-Copywriting espanol LATAM.
+**Bloque 1 — Contenido (caps 1-3)**
+Content Production Pipeline (trend → 3 variantes → evaluacion), Creative Studio
+(imagenes AI, catalogacion), Copywriting espanol LATAM.
 
 **Bloque 2 — SEO/GEO (caps 5-7)**
 SEO Content Workflow (keyword → articulo → audit loop hasta PUBLISH), GEO/AEO
@@ -102,8 +101,8 @@ el *por que*, no solo el *que*.
 MEDIO (audit log). Content = BAJO (revision humana post-generacion). Timeouts:
 Email 30min, Invoice 1h, Escalation 2h.
 
-**Video:** Templates profesionales disenados una vez por humano. Agentes solo
-generan JSON de contenido. Evaluar Rendervid (open source) vs Remotion (licencia).
+**Video:** No incluido. Costo alto ($0.15-0.50/seg), calidad inconsistente,
+templates programaticos visualmente limitados. Solo imagenes AI.
 
 **Research sin tokens:** Crawl4AI Adaptive Crawling via Prefect (0 tokens
 recoleccion) → LLM solo para sintesis final (~3K tokens). 90% menos costo.
@@ -120,7 +119,7 @@ vinculan `contact_id`. Debe corregirse antes de activar CRM.
 
 **4 agentes Prefect (invocados como tasks):**
 - **Researcher** — Reemplaza 14 agentes (research, scouts, keyword, competitors)
-- **Writer** — Reemplaza 8 agentes (scriptwriter, article, copywriter, posts, email)
+- **Writer** — Reemplaza 7 agentes (article, copywriter, posts, email)
 - **Analyst** — Reemplaza 6 agentes (analytics, creative director, auditors, PM)
 - **Strategist** — Reemplaza 3 agentes (growth, SEO strategy, social planner)
 
@@ -154,7 +153,7 @@ Lead scoring, Support simplificado, Customer 360 View.
 **Fase 5 — Investigacion (semanas 9-10):** Deep research, competitor intel,
 crawler-first research.
 
-**Fase 6 — Automatizacion (semanas 11-12):** Video, Email HITL, Invoice HITL,
+**Fase 6 — Automatizacion (semanas 11-12):** Email HITL, Invoice HITL,
 Onboarding.
 
 **Fase 7 — Optimizacion (mes 4+):** Experimentacion completa, content recycling,

@@ -132,7 +132,7 @@ Los steps deterministicos son Python puro. 50-70% menos tokens que todo-en-AgNO.
 
 ---
 
-## Las 35 Capacidades (+6 sub-capacidades CRM)
+## Las 34 Capacidades (+6 sub-capacidades CRM)
 
 ### BLOQUE 1: GENERACION DE CONTENIDO
 
@@ -140,46 +140,26 @@ Los steps deterministicos son Python puro. 50-70% menos tokens que todo-en-AgNO.
 
 Workflow completo de tendencia a contenido listo.
 
-**Flujo:** Trend Scout → Compact Brief → Scriptwriter (3 variantes) → Creative Director (evaluacion) → Tu eliges.
+**Flujo:** Researcher investiga → Compact Brief → Writer (3 variantes de copy) → Analyst (evaluacion) → Tu eliges.
 
 **Agentes:**
-- **Trend Scout** — Investiga tendencias de las ultimas 48h. Max 3 tool calls. Produce brief con hooks en espanol, relevance score, fuentes. Solo topics con 2+ fuentes credibles y score 7+.
-- **Scriptwriter** — 3 variantes de storyboard por brief: emocional, data-driven, provocativo. 5-6 escenas, max 15 palabras por oracion. Guarda como JSON.
-- **Creative Director** — Evalua las 3 variantes: mood, flujo escena por escena, momento mas fuerte, debilidad. Recomienda la mejor con justificacion.
-- **Analytics Agent** — Post-publicacion. Reportes semanales: top/bottom posts, analisis por pilar y hook type, 3 recomendaciones data-driven.
+- **Researcher** — Investiga tendencias de las ultimas 48h. Max 3 tool calls. Produce brief con hooks en espanol, relevance score, fuentes. Solo topics con 2+ fuentes credibles y score 7+.
+- **Writer** — 3 variantes de contenido por brief: emocional, data-driven, provocativo. Guarda como JSON estructurado.
+- **Analyst** — Evalua las 3 variantes: fortaleza, debilidad, engagement potential. Recomienda la mejor con justificacion.
+- **Analyst (post-publicacion)** — Reportes semanales: top/bottom posts, analisis por pilar y hook type, 3 recomendaciones data-driven.
 
-**Output:** 3 guiones listos con evaluacion creativa. Tu decides cual producir.
+**Output:** 3 piezas de contenido listas con evaluacion. Tu decides cual publicar.
 
-#### 2. Video Programatico
+#### 2. Creative Studio (Imagenes)
 
-Templates profesionales pre-disenados que se llenan con JSON de contenido.
-
-**Estrategia:** La calidad visual viene del template, no del agente. Un disenador crea templates de alta calidad una vez. Los agentes solo generan el contenido (hook, features, stats, CTA).
-
-**Templates target:**
-- PromoProduct — Video promocional de producto
-- DataStory — Video con datos/estadisticas
-- Explainer — Video explicativo paso a paso
-- TikTok/Reels — Formato vertical con captions
-
-**Opciones de rendering:**
-- Remotion (React, licencia comercial $100+/mes)
-- Rendervid (open source, JSON nativo, MCP server integrado)
-- Creatomate (API REST, template editor visual)
-
-**Colores por marca:** Whabi (#25D366), Docflow (#e94560), Aurora (#8B5CF6). Automaticos segun campo `brand`.
-
-**Flujo:** Disenador crea template → Template se registra con JSON schema → Content Team genera JSON → Rendering automatico → Video listo.
-
-#### 3. Creative Studio
-
-Team de 3 agentes en modo route para generacion de media.
+Generacion de imagenes AI para social media y marketing.
 
 - **Image Generator** — Imagenes AI desde prompts. Ratio 1:1 para social, 9:16 para stories. Prompts detallados: subject, style, lighting, composition, mood.
-- **Video Generator** — Videos cortos desde imagenes y prompts. Transiciones suaves, estilo consistente.
-- **Media Describer** — Describe media para accesibilidad y catalogacion. Subject, setting, colores, mood, texto visible.
+- **Media Describer** — Describe imagenes para accesibilidad y catalogacion. Subject, setting, colores, mood, texto visible.
 
-**Uso:** Thumbnails, covers, variantes para A/B testing, catalogacion automatica.
+**Uso:** Thumbnails, covers, banners, variantes para A/B testing, catalogacion automatica.
+
+**Colores por marca:** Whabi (#25D366), Docflow (#e94560), Aurora (#8B5CF6).
 
 #### 4. Copywriting
 
@@ -700,7 +680,7 @@ No es un sistema separado — es una extension del Content + Analytics workflow.
 
 **Como funciona:**
 
-1. **Generacion de variantes:** El Scriptwriter ya genera 3 variantes por brief
+1. **Generacion de variantes:** El Writer ya genera 3 variantes por brief
    (emocional, data-driven, provocativo). Esto se extiende a hooks de social media:
    mismo contenido → 3-5 hooks diferentes.
 
@@ -942,11 +922,10 @@ sin contenido publicado. No puedes aprender sin experimentos medidos.
 > Research alimenta al Growth Strategist con inteligencia competitiva.
 
 ### Fase 6 — Automatizacion (semanas 11-12)
-21. Video programatico (templates + rendering)
-22. Email Agent con HITL
-23. Invoice Agent con HITL
-24. Scheduler Agent
-25. Onboarding Agent
+21. Email Agent con HITL
+22. Invoice Agent con HITL
+23. Scheduler Agent
+24. Onboarding Agent
 
 ### Fase 7 — Optimizacion Avanzada (mes 4+)
 26. **Experimentacion completa** — A/B automatizado con declaracion de ganador y escalado (cap. 34)
@@ -981,7 +960,7 @@ Cada semana el sistema es mejor que la anterior.
 
 | Bloque | Caps | Que resuelve |
 |--------|------|-------------|
-| 1. Contenido | 1-4 | Generar contenido multi-formato (video, imagen, copy, scripts) |
+| 1. Contenido | 1-3 | Generar contenido multi-formato (imagen, copy, posts) |
 | 2. SEO/GEO | 5-7 | Posicionar en Google Y en AI engines (ChatGPT, Perplexity) |
 | 3. Social Media | 8-11 | Publicar en 30+ plataformas con auditoria y calendario |
 | 4. Investigacion | 12-16 | Research profundo, competitor intel, market intelligence |

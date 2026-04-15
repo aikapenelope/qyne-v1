@@ -70,56 +70,19 @@ Esto ya existe parcialmente en `_compact_research` del Content Production Workfl
 
 ---
 
-## 2. Video: Enfoque Hibrido (Templates + AI Generativo)
+## 2. Imagenes: Generacion AI para Marketing
 
-### El problema
+### Decision
 
-Remotion es limitado: templates basicos, licencia comercial ($100+/mes), y el
-contenido generado con templates simples se ve amateur. Pero el video generativo
-AI puro (Sora, Kling) no es predecible ni repetible para contenido de marca.
+Generacion de imagenes AI via Image Generator (NanoBanana/Google) para
+thumbnails, covers, banners, y variantes de A/B testing. El Writer genera
+el prompt descriptivo, el Image Generator produce la imagen, Media Describer
+cataloga para accesibilidad.
 
-### Panorama de video AI (abril 2026)
-
-**Video generativo (AI genera el video completo desde texto/imagen):**
-
-| Modelo | Mejor para | Precio | Duracion | Resolucion | Audio |
-|--------|-----------|--------|----------|-----------|-------|
-| Veo 3.1 (Google) | Produccion premium, API madura | $0.15/seg | 8s | 4K | Si |
-| Kling 2.6 (ByteDance) | Social media, videos largos | Free tier + $8/mes | 120s | 1080p | Si |
-| Runway Gen-4.5 | Control creativo | $12/mes | 45s | 4K | Si |
-| Sora 2 (OpenAI) | Calidad cinematica | $20/mes | 60s | 1080p | Si |
-| Wan2.2 (open source) | Self-hosted, sin costo | GPU 8.2GB VRAM | Variable | 1080p | Si |
-
-**Video programatico (templates con datos variables):**
-
-| Herramienta | Modelo | Ventaja | Desventaja |
-|-------------|--------|---------|------------|
-| Rendervid | JSON templates, MCP server, open source | AI-first, sin licencia | Nuevo |
-| Remotion | React templates | Ecosistema maduro | Licencia $100+/mes |
-| Creatomate | API REST + editor visual | No-code + code | SaaS externo |
-
-### Decision: 3 engines segun tipo de contenido
-
-```
-Prefect flow decide tipo de video:
-  ├── Template (datos/promo) → Rendervid → video predecible, on-brand
-  ├── Social (Reels/TikTok) → Kling API → video generativo, impactante
-  └── Premium (brand/cinematico) → Veo 3.1 API → video de alta calidad
-  ↓
-Resultado → Directus (media library) → Postiz (publicacion)
-```
-
-- **Rendervid** para contenido repetitivo con datos variables (promo producto,
-  data stories, explainers). Templates profesionales disenados una vez. Sin licencia.
-- **Kling API** para social media (Reels, TikTok). Free tier disponible.
-  El Writer genera el prompt, Prefect task llama a la API.
-- **Veo 3.1 API** para contenido premium de marca. $0.15/seg, 4K, audio nativo.
-
-**Costo estimado:** 10 videos/semana social via Kling free tier = $0.
-Videos premium via Veo 3.1 = ~$1.50 por video de 10 segundos.
-
-**Open source alternativa:** Wan2.2 (8.2GB VRAM) via API de terceros
-(fal.ai a $0.10/seg) si se quiere evitar dependencia de Google/ByteDance.
+No se incluye generacion de video. El costo por video AI es alto ($0.15-0.50
+por segundo), la calidad es inconsistente, y los templates programaticos
+(Remotion, Rendervid) producen resultados visualmente limitados. Si se
+necesita video en el futuro, se evalua como servicio externo puntual.
 
 ---
 
@@ -518,7 +481,7 @@ Prefect flow puede trigger campanas. Self-hosted en Docker (~512MB-1GB RAM).
 | Area | Decision | Razon |
 |------|----------|-------|
 | Context entre agentes | Structured Decision Infrastructure (Pydantic artifacts) | Preserva el *por que*, no solo el *que* |
-| Video | 3 engines: Rendervid (templates) + Kling (social) + Veo 3.1 (premium) | Cada tipo de contenido usa el engine optimo |
+| Video | Eliminado. Costo alto, calidad inconsistente. Solo imagenes AI. | Video AI $0.15-0.50/seg, Remotion visualmente limitado |
 | Deep Research | Crawler-first (Crawl4AI + Prefect) → sintesis LLM | 90% menos tokens, datos mas frescos |
 | Deep Research (profundo) | GPT Researcher como tool del Researcher agent | #1 en benchmarks, se integra como tool de AgNO |
 | Social publishing | Contenido listo en Directus + Postiz self-hosted | Sin costo de API, 30+ plataformas |
