@@ -25,30 +25,110 @@ Research → Strategy → Generate → Distribute → Measure → Learn → Opti
 
 ## Arquitectura
 
+### Principio fundamental
+
+> **Prefect es el cerebro operativo. AgNO es la inteligencia puntual.
+> Directus es la memoria. Postiz es la boca.**
+
+Anthropic ("Building Effective Agents"): "Start with the simplest pattern
+that solves the problem. Chains first. Graduate to agentic loops only when
+the task genuinely requires dynamic decision-making."
+
+Morph LLM Workflows (2026): "The winning architecture combines a deterministic
+backbone with intelligence deployed at specific steps. Agents are invoked
+intentionally by the flow, and control always returns to the backbone."
+
+### Las 3 capas
+
 ```
-Tu (NEXUS dashboard)
+CAPA 1: PREFECT (backbone deterministico)
+  Todos los flujos de marketing: content, SEO, social, research, experiments
+  Scheduling, retry, timeout, logging, monitoring
+  Steps deterministicos en Python puro (0 tokens)
+  Invoca agentes AgNO como tasks puntuales
     |
     v
-AgNO ---- razonamiento, generacion, decisiones
+CAPA 2: AgNO AGENTES (inteligencia puntual, 8 agentes)
+  Se invocan desde Prefect tasks, no entre ellos
+  Reciben input estructurado (Pydantic), producen output estructurado
+  No hay teams coordinando. Prefect coordina.
     |
-    |-- tools: Directus REST, Prefect API, Postiz CLI
+    v
+CAPA 3: AgNO CONVERSACIONAL (tiempo real)
+  WhatsApp Support, Dash, Pal, NEXUS chat
+  Necesitan routing dinamico, multi-turno, memoria
+  Estos SI usan AgNO teams/routing porque son interactivos
     |
-Prefect -- flujos deterministicos, schedules, ETL, scraping
-    |
-    |-- tasks: httpx, Crawl4AI, pg_dump, Voyage AI
-    |
-Directus - data layer, triggers, webhooks, Kanban, CRM
-    |
-    |-- flows: on-create -> webhook, on-update -> notify
-    |
-Postiz --- publicacion social, OAuth, 30+ plataformas, analytics
+    v
+DIRECTUS (memoria) ←→ POSTIZ (publicacion)
+  Data layer, CRM, Kanban     30+ plataformas, OAuth, analytics
 ```
 
-Cuatro componentes, cero redundancia:
-- **AgNO** decide (IA)
-- **Prefect** ejecuta (deterministico)
-- **Directus** almacena (data + UI)
-- **Postiz** publica (social media)
+### Los 8 agentes (en lugar de 42)
+
+| Agente | Rol | Donde se invoca |
+|--------|-----|----------------|
+| **Researcher** | Investiga cualquier tema (web search, Tavily, Exa, Firecrawl) | Prefect tasks |
+| **Writer** | Escribe cualquier formato (articulo, post, script, email, copy). Las instrucciones especificas vienen del Prefect task. | Prefect tasks |
+| **Analyst** | Analiza datos, compara metricas, produce reportes | Prefect tasks |
+| **Strategist** | Sintetiza datos en planes y decisiones estrategicas | Prefect tasks (semanal) |
+| **Support Router** | Routing de WhatsApp por producto | AgNO real-time |
+| **Support Agent** | Atiende soporte con knowledge base y CRM tools | AgNO real-time |
+| **Dash** | Analytics conversacional, preguntas de negocio | AgNO real-time |
+| **Pal** | Asistente personal con memoria | AgNO real-time |
+
+**Por que 8 y no 42:** Un agente Writer con instrucciones de Instagram
+desde Prefect es mas confiable que un Instagram Post Agent dedicado.
+Las instrucciones especificas vienen del contexto del task, no del agente.
+Menos agentes = menos handoffs = menos perdida de contexto = menos tokens.
+
+**Datos que respaldan esto:**
+- 70% de casos de uso se resuelven mejor con un solo agente bien prompteado (Iterathon, 2026)
+- Agent-to-agent communication genera 3-5x mas tokens que single-agent (Iterathon, 2026)
+- 80% de sistemas en produccion usan control flow estructurado, no swarms (AGIX, 2026)
+- Anthropic recomienda chains primero, agentic loops solo cuando es necesario
+
+### Patron: Prefect flow con agent calls puntuales
+
+```python
+@flow(name="Content Production")
+async def content_production(topic: str, brand: str):
+    # Step 1: Research (AGENTE - necesita razonamiento)
+    brief = await research_topic(topic)
+
+    # Step 2: Compact (DETERMINISTICO - 0 tokens)
+    compact = extract_key_points(brief)
+
+    # Step 3: Generate variants (AGENTE - necesita creatividad)
+    variants = await write_variants(compact, brand)
+
+    # Step 4: Evaluate (AGENTE - necesita juicio)
+    evaluation = await analyze_variants(variants)
+
+    # Step 5: Store (DETERMINISTICO - 0 tokens)
+    save_to_directus(variants, evaluation, brand)
+```
+
+Prefect controla el flujo. Si step 1 falla, Prefect hace retry.
+Cada agente es independiente, recibe Pydantic input, produce Pydantic output.
+Los steps deterministicos son Python puro. 50-70% menos tokens que todo-en-AgNO.
+
+### Que va en Prefect vs que va en AgNO
+
+| Flujo | Prefect (backbone) | AgNO (real-time) |
+|-------|-------------------|-----------------|
+| Content Production | Si | - |
+| SEO Content | Si | - |
+| Social Media Generation | Si | - |
+| Deep Research | Si | - |
+| Competitor Intel | Si | - |
+| Growth Strategist (semanal) | Si | - |
+| Experimentation (A/B) | Si | - |
+| Lead Scoring | Si | - |
+| WhatsApp Support | - | Si (multi-turno) |
+| Dash (analytics) | - | Si (ad-hoc) |
+| Pal (personal) | - | Si (memoria) |
+| NEXUS chat | - | Si (interactivo) |
 
 ---
 
@@ -799,8 +879,8 @@ Directus con layouts Kanban nativos. Deals pipeline para ventas. Support tickets
 
 | Componente | Tecnologia | Rol |
 |-----------|-----------|-----|
-| Agentes | AgNO (Python) | 35 capacidades, 7+ teams, 7+ workflows, 24+ skills |
-| Orquestacion | Prefect | Flows deterministicos, schedules, ETL |
+| Agentes | AgNO (Python) | 8 agentes core, 4 conversacionales + 4 invocados por Prefect |
+| Orquestacion | Prefect | Backbone de todos los flujos de marketing, schedules, retry, monitoring |
 | Data Layer | Directus + PostgreSQL | CRM, CMS, REST/GraphQL, Kanban, Flows |
 | Knowledge | LanceDB + Voyage AI | Vector search, RAG, embeddings |
 | Social Media | Postiz (self-hosted) | 30+ plataformas, OAuth, analytics |
