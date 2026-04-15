@@ -52,7 +52,7 @@ Cuatro componentes, cero redundancia:
 
 ---
 
-## Las 35 Capacidades
+## Las 35 Capacidades (+6 sub-capacidades CRM)
 
 ### BLOQUE 1: GENERACION DE CONTENIDO
 
@@ -355,12 +355,25 @@ Coleccion `support_tickets` con Kanban por producto.
 
 **Stages:** Nuevo → En Progreso → Esperando Cliente → Resuelto → Cerrado
 
-**Cada ticket:** product (whabi/docflow/aurora), priority (critical/high/medium/low), stage, assigned_to, sla_deadline, resolution_notes.
+**Cada ticket:** contact_id (relacion a contacts), product (whabi/docflow/aurora),
+priority (critical/high/medium/low), stage, assigned_to, sla_deadline,
+first_response_at, resolved_at, csat_score, resolution_notes.
+
+**SLA medible:**
+- `first_response_at` y `resolved_at` permiten calcular FRT y TTR reales
+- Prefect flow diario calcula SLA compliance por producto
+- Dashboard en Directus muestra % de tickets dentro de SLA
+
+**CSAT (satisfaccion del cliente):**
+- Ticket resuelto → agente envia mensaje con escala 1-5 via WhatsApp
+- Respuesta se guarda en `support_tickets.csat_score`
+- Prefect flow semanal calcula CSAT promedio por producto
 
 **Automatizaciones:**
 - Ticket critical sin respuesta 1h → escalacion
 - Ticket "Esperando Cliente" 48h → recordatorio al cliente
 - Ticket resuelto → encuesta de satisfaccion via WhatsApp
+- SLA por vencerse (80% del tiempo) → alerta preventiva
 
 #### 23. WhatsApp Support Team
 
@@ -377,6 +390,54 @@ Router que dirige mensajes al agente correcto por producto.
 - Registra conversacion con intent, sentiment, lead_score (`log_conversation`)
 - Crea task de follow-up si es de alto valor
 - Escala a humano si es critico (`escalate_to_human`)
+
+**Customer 360 View (CORRECCION CRITICA):**
+
+> **Estado actual del codigo:** Los tools `log_support_ticket`, `log_conversation`,
+> y `confirm_payment` NO vinculan registros a un `contact_id`. Cada ticket,
+> conversacion y pago se crea como registro independiente sin relacion al contacto.
+> `save_contact` crea el contacto pero no retorna el ID para usarlo en registros
+> posteriores.
+
+**Lo que debe corregirse:**
+1. `save_contact` debe retornar el `contact_id` de Directus (o buscarlo si ya existe por phone/email)
+2. Todos los tools (`log_support_ticket`, `log_conversation`, `confirm_payment`) deben
+   recibir y guardar `contact_id` como relacion M2O a la coleccion `contacts`
+3. Nuevo tool `get_customer_360(contact_id)` que el agente de soporte llama al inicio
+   de cada conversacion. Retorna: tickets anteriores, conversaciones pasadas, plan actual,
+   pagos, deals en pipeline, lead score. Esto se inyecta como contexto.
+
+**Resultado:** El agente de soporte sabe que un cliente que llama por tercera vez
+por el mismo problema necesita trato diferente. Ve todo el historial antes de responder.
+
+#### 23b. FAQ de Soporte por Producto
+
+Coleccion `support_faq` en Directus.
+
+**Campos:** product, question, answer, times_used, last_used, status (draft/published).
+
+**Flujo:**
+1. Agente de soporte busca en FAQ primero (query por producto)
+2. Si encuentra respuesta aprobada, la usa directamente (rapido, consistente)
+3. Si no encuentra, busca en knowledge base general (LanceDB)
+4. Si resuelve algo nuevo, crea un FAQ draft para revision humana
+
+**Beneficio:** Respuestas consistentes para preguntas frecuentes. Tracking de que
+preguntas se repiten mas (para mejorar documentacion y producto).
+
+#### 23c. Soporte Multi-Canal
+
+**Estado actual:** Solo WhatsApp. Pero clientes pueden escribir por email,
+formulario web, o redes sociales.
+
+**Solucion:** Directus Flows que reciben webhooks de diferentes canales y crean
+tickets con campo `channel` (whatsapp/email/web/social). Los agentes de soporte
+ven todos los tickets en el mismo Kanban independientemente del canal de origen.
+
+**Implementacion por fases:**
+- Fase 4: WhatsApp (ya definido)
+- Fase 6: Email (via Email Agent)
+- Futuro: Web form (Directus Flow con webhook), social (via Postiz monitoring)
 
 #### 24. Invoice y Billing
 
@@ -417,6 +478,42 @@ Onboarding Agent guia nuevos clientes paso a paso.
 - Busca en knowledge base para respuestas especificas
 - Asume cero conocimiento tecnico
 - Usa skills especificos por producto (whabi, docflow, aurora)
+- Tracking de completitud: coleccion `onboarding_progress` con steps completados por cliente
+
+#### 27b. Customer Health (Post-Venta)
+
+Tracking de salud del cliente despues del onboarding.
+
+**Coleccion `customer_health`:**
+- contact_id, product, plan, start_date, renewal_date
+- usage_score (basado en actividad: tickets, logins, uso de features)
+- churn_risk (high/medium/low, calculado por Prefect flow semanal)
+- upsell_potential (Starter que podria ser Pro, basado en uso)
+
+**Automatizaciones:**
+- churn_risk sube a "high" → notificacion + task de retencion
+- renewal_date en 30 dias → recordatorio de renovacion
+- usage_score alto + plan basico → sugerencia de upsell
+
+**Implementacion:** Fase 7 (necesita datos de uso reales de los productos).
+
+#### 27c. Notificaciones y Control Center
+
+**Dashboard NEXUS** es el control center principal. Ya muestra mensajes de WhatsApp.
+
+**Notificaciones en tiempo real (futuro):**
+- PWA con push notifications para situaciones criticas:
+  - Ticket critical sin respuesta
+  - Deal de alto valor necesita follow-up
+  - SLA por vencerse
+  - Escalacion a humano pendiente
+- Alternativa: Telegram/Slack bot para notificaciones urgentes
+- El control center debe ser la experiencia principal: limpio, rapido,
+  con toda la informacion relevante sin tener que abrir Directus
+
+**Implementacion por fases:**
+- Fase 4: Notificaciones basicas via Directus Flows (webhook a Telegram)
+- Fase 7: PWA con push notifications en tiempo real
 
 ---
 
@@ -795,3 +892,38 @@ Semana N+1:
 ```
 
 Cada semana el sistema es mejor que la anterior.
+
+---
+
+## Resumen Ejecutivo
+
+### Que tenemos (9 bloques, 35 capacidades + 6 sub-capacidades CRM)
+
+| Bloque | Caps | Que resuelve |
+|--------|------|-------------|
+| 1. Contenido | 1-4 | Generar contenido multi-formato (video, imagen, copy, scripts) |
+| 2. SEO/GEO | 5-7 | Posicionar en Google Y en AI engines (ChatGPT, Perplexity) |
+| 3. Social Media | 8-11 | Publicar en 30+ plataformas con auditoria y calendario |
+| 4. Investigacion | 12-16 | Research profundo, competitor intel, market intelligence |
+| 5. Analytics | 17-20 | Medir todo: contenido, negocio, leads, sentimiento |
+| 6. CRM/Ventas | 21-27c | Pipeline ventas, soporte Kanban, WhatsApp, billing, customer 360 |
+| 7. Knowledge | 28-30 | Crawling, RAG, data operations |
+| 8. Product Dev | 31-32 | Analisis de features, code review |
+| 9. L4 Strategy | 33-35 | Decision engine, experimentacion, memoria estructurada |
+
+### Que falta (futuro, no bloqueante)
+
+| Gap | Cuando | Dependencia |
+|-----|--------|-------------|
+| Revenue optimization (funnel analysis, pricing) | Fase 7+ | 3+ meses de datos de deals |
+| Campaign orchestrator (full-funnel) | Fase 7+ | Landing pages + email sequences |
+| Customer health / churn detection | Fase 7+ | Datos de uso reales de productos |
+| PWA de notificaciones en tiempo real | Fase 7+ | Control center definido |
+| Soporte via web form y social | Futuro | Postiz monitoring + Directus webhooks |
+
+### Correccion critica pendiente (codigo)
+
+Los tools de Directus (`log_support_ticket`, `log_conversation`, `confirm_payment`)
+no vinculan registros a `contact_id`. Esto debe corregirse antes de activar el CRM
+(Fase 4). Sin esta correccion, no hay Customer 360 View y cada interaccion es un
+registro huerfano.
