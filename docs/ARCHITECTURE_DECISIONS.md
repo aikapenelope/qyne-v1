@@ -70,49 +70,56 @@ Esto ya existe parcialmente en `_compact_research` del Content Production Workfl
 
 ---
 
-## 2. Video Programatico: Mas Alla de Remotion
+## 2. Video: Enfoque Hibrido (Templates + AI Generativo)
 
 ### El problema
 
-Los templates de Remotion actuales (PromoProduct, DataStory, Explainer, TikTok) son basicos. El contenido generado automaticamente sin templates profesionales se ve amateur. Ademas, Remotion tiene licencia comercial ($100+/mes para empresas con 4+ empleados).
+Remotion es limitado: templates basicos, licencia comercial ($100+/mes), y el
+contenido generado con templates simples se ve amateur. Pero el video generativo
+AI puro (Sora, Kling) no es predecible ni repetible para contenido de marca.
 
-### Alternativas evaluadas (abril 2026)
+### Panorama de video AI (abril 2026)
+
+**Video generativo (AI genera el video completo desde texto/imagen):**
+
+| Modelo | Mejor para | Precio | Duracion | Resolucion | Audio |
+|--------|-----------|--------|----------|-----------|-------|
+| Veo 3.1 (Google) | Produccion premium, API madura | $0.15/seg | 8s | 4K | Si |
+| Kling 2.6 (ByteDance) | Social media, videos largos | Free tier + $8/mes | 120s | 1080p | Si |
+| Runway Gen-4.5 | Control creativo | $12/mes | 45s | 4K | Si |
+| Sora 2 (OpenAI) | Calidad cinematica | $20/mes | 60s | 1080p | Si |
+| Wan2.2 (open source) | Self-hosted, sin costo | GPU 8.2GB VRAM | Variable | 1080p | Si |
+
+**Video programatico (templates con datos variables):**
 
 | Herramienta | Modelo | Ventaja | Desventaja |
 |-------------|--------|---------|------------|
-| **Remotion** | React → video, licencia comercial | Ecosistema maduro, 43K stars | Costo de licencia, templates basicos |
-| **Rendervid** | JSON templates, MCP server, open source | AI-first, sin licencia, JSON nativo | Nuevo (menos ecosistema) |
-| **Creatomate** | API REST + template editor | No-code + code, bulk generation | SaaS externo, costo por render |
-| **Typeframes** | Prompt → motion graphics | Rapido, sin codigo | Menos control, SaaS |
+| Rendervid | JSON templates, MCP server, open source | AI-first, sin licencia | Nuevo |
+| Remotion | React templates | Ecosistema maduro | Licencia $100+/mes |
+| Creatomate | API REST + editor visual | No-code + code | SaaS externo |
 
-### Decision: Enfoque hibrido
-
-**Para templates profesionales:**
-- Disenar templates en **Remotion Studio** o **Creatomate editor** con calidad profesional (motion graphics, tipografia, transiciones)
-- Exportar como templates parametrizados (JSON schema)
-- Un disenador crea 10-15 templates de alta calidad una vez
-
-**Para automatizacion:**
-- Los agentes generan el **JSON de contenido** (hook, features, stats, CTA)
-- El rendering se hace con el template pre-disenado
-- No se genera video "desde cero" — se llena un template profesional con datos
-
-**Para reducir costos:**
-- Evaluar **Rendervid** (open source, sin licencia) como alternativa a Remotion
-- Rendervid usa JSON templates nativos que los agentes pueden generar directamente
-- MCP server integrado permite que agentes descubran templates, validen JSON, y rendericen
-
-### Flujo recomendado
+### Decision: 3 engines segun tipo de contenido
 
 ```
-1. Disenador crea template profesional (una vez)
-2. Template se registra con su JSON schema
-3. Content Team genera JSON de contenido via agentes
-4. Rendering automatico con template pre-disenado
-5. Output: video profesional listo para publicar
+Prefect flow decide tipo de video:
+  ├── Template (datos/promo) → Rendervid → video predecible, on-brand
+  ├── Social (Reels/TikTok) → Kling API → video generativo, impactante
+  └── Premium (brand/cinematico) → Veo 3.1 API → video de alta calidad
+  ↓
+Resultado → Directus (media library) → Postiz (publicacion)
 ```
 
-El punto clave: **la calidad visual viene del template, no del agente**. El agente solo decide *que decir*, no *como se ve*.
+- **Rendervid** para contenido repetitivo con datos variables (promo producto,
+  data stories, explainers). Templates profesionales disenados una vez. Sin licencia.
+- **Kling API** para social media (Reels, TikTok). Free tier disponible.
+  El Writer genera el prompt, Prefect task llama a la API.
+- **Veo 3.1 API** para contenido premium de marca. $0.15/seg, 4K, audio nativo.
+
+**Costo estimado:** 10 videos/semana social via Kling free tier = $0.
+Videos premium via Veo 3.1 = ~$1.50 por video de 10 segundos.
+
+**Open source alternativa:** Wan2.2 (8.2GB VRAM) via API de terceros
+(fal.ai a $0.10/seg) si se quiere evitar dependencia de Google/ByteDance.
 
 ---
 
@@ -382,15 +389,144 @@ Toda accion de agente con HITL debe registrarse en Directus `agent_audit_log`:
 
 ---
 
-## 7. Resumen de Decisiones
+## 7. Observabilidad: AgentOS es Suficiente
+
+### Evaluacion
+
+AgNO AgentOS ya incluye tracing nativo, dashboard visual (os.agno.com),
+per-user/per-session isolation, y audit logs. Langfuse agrega dashboards
+de costo por agente, evaluaciones LLM-as-judge, y prompt management versionado.
+
+### Pero el costo de Langfuse es prohibitivo
+
+Langfuse v3 requiere ClickHouse como OLAP storage. Requisitos minimos
+confirmados por el maintainer: **4 CPU + 16GB RAM** (8GB "at the lower end").
+Un usuario reporto que v2 corria en 4GB, v3 necesita el doble. No hay
+forma de reducirlo.
+
+Benchmark de overhead (aimultiple.com, 2026):
+- LangSmith: ~0% overhead
+- Laminar: ~5% overhead
+- AgentOps: ~12% overhead
+- Langfuse: ~15% overhead (el mas alto de los testeados)
+
+### Decision: No agregar Langfuse
+
+AgentOS cubre el 80% de las necesidades de observabilidad. El 20% restante
+(costos por agente, evals automaticas) no justifica duplicar los recursos
+del servidor. Si en el futuro se necesitan evals mas sofisticadas, Langfuse
+tiene integracion nativa con AgNO via OpenTelemetry (se puede agregar sin
+cambiar codigo).
+
+---
+
+## 8. Deep Research: GPT Researcher como Tool de AgNO
+
+### Que es GPT Researcher
+
+Agente autonomo de deep research (26.5K stars, Apache 2.0). Ranked #1 en
+benchmarks academicos (Carnegie Mellon DeepResearchGym): 85.36% precision
+en citaciones, 90.82% recall. Genera reportes de 2K+ palabras con fuentes.
+
+### Integracion: Como tool del Researcher agent, no como sistema aparte
+
+```python
+from gpt_researcher import GPTResearcher
+from agno.tools.decorator import tool
+
+@tool()
+async def deep_research(query: str, report_type: str = "research_report") -> str:
+    """Investigacion profunda autonoma con multiples fuentes."""
+    researcher = GPTResearcher(query=query, report_type=report_type)
+    await researcher.conduct_research()
+    return await researcher.write_report()
+```
+
+El Researcher agent de AgNO tiene este tool disponible. Cuando Prefect lo
+invoca con instrucciones de "investigacion profunda", el agente decide usar
+`deep_research`. Para busquedas simples, usa DuckDuckGo/Tavily directamente.
+
+### Por que no A2A (Agent-to-Agent protocol)
+
+Prefect es mejor que A2A para este caso porque:
+- El resultado siempre se guarda en Directus como step intermedio del flow
+- Retry, timeout, logging automatico via Prefect
+- No necesitas que dos agentes "hablen" entre si
+- A2A tiene sentido para agentes de diferentes sistemas. Los nuestros estan
+  todos en el mismo sistema.
+
+---
+
+## 9. Reflection Pattern (Mejora de Calidad)
+
+### Que es
+
+El agente genera una respuesta, se critica a si mismo, y refina antes de
+entregar. Generate → Reflect → Refine. Mejora pass rates 10-20% en benchmarks.
+
+### Implementacion en Prefect flows
+
+Agregar reflection como step intermedio despues de cada agente que genera
+contenido:
+
+```python
+@flow
+async def write_with_reflection(brief, brand, max_rounds=2):
+    draft = await write_content(brief, brand)        # Writer agent
+    for round in range(max_rounds):
+        critique = await analyze_content(draft, criteria)  # Analyst agent
+        if critique.passes:
+            break
+        draft = await refine_content(draft, critique)  # Writer agent
+    return draft
+```
+
+El loop es deterministico (Prefect controla max iteraciones). La evaluacion
+es inteligente (Analyst agent). Esto ya existe parcialmente en el SEO Content
+Workflow (article → audit → revise loop). Debe generalizarse a todos los
+flows de contenido.
+
+---
+
+## 10. Mautic: Email Marketing (Fase 7)
+
+### Que agrega
+
+Mautic (8.7K stars, open source, 40K+ empresas) cubre lo que falta para
+full-funnel marketing:
+- Email sequences automaticas (drip campaigns)
+- Landing pages con forms
+- A/B testing de emails
+- Segmentacion avanzada por comportamiento
+- Progressive profiling
+
+### Cuando agregarlo
+
+Fase 7 (mes 4+), cuando el sistema base este funcionando. No es urgente
+pero es el upgrade mas potente para revenue: contenido (QYNE) → landing
+page (Mautic) → email sequence (Mautic) → CRM (Directus).
+
+### Integracion
+
+Mautic tiene REST API. Directus Flow sincroniza contactos bidireccional.
+Prefect flow puede trigger campanas. Self-hosted en Docker (~512MB-1GB RAM).
+
+---
+
+## 11. Resumen de Decisiones
 
 | Area | Decision | Razon |
 |------|----------|-------|
 | Context entre agentes | Structured Decision Infrastructure (Pydantic artifacts) | Preserva el *por que*, no solo el *que* |
-| Video | Templates profesionales pre-disenados + JSON de contenido | Calidad visual del template, no del agente |
+| Video | 3 engines: Rendervid (templates) + Kling (social) + Veo 3.1 (premium) | Cada tipo de contenido usa el engine optimo |
 | Deep Research | Crawler-first (Crawl4AI + Prefect) → sintesis LLM | 90% menos tokens, datos mas frescos |
+| Deep Research (profundo) | GPT Researcher como tool del Researcher agent | #1 en benchmarks, se integra como tool de AgNO |
 | Social publishing | Contenido listo en Directus + Postiz self-hosted | Sin costo de API, 30+ plataformas |
 | CRM ventas | Kanban en Directus con deals pipeline + auto follow-up | Visual, automatizado, integrado |
 | CRM soporte | Kanban por producto con SLA y escalacion | Tracking por producto, prioridades claras |
 | HITL | 4 patrones por nivel de riesgo del agente | Seguridad sin friction innecesaria |
 | Lead tracking | Scoring mejorado + deal creation automatica | Ningun lead se pierde |
+| Observabilidad | AgentOS nativo (no Langfuse) | Langfuse necesita 16GB RAM extra, AgentOS cubre 80% |
+| Calidad de contenido | Reflection pattern en Prefect flows | Generate → Reflect → Refine, +10-20% calidad |
+| Email marketing | Mautic en Fase 7 | Full-funnel: landing → email sequence → CRM |
+| Orquestacion | Prefect backbone (no A2A) | Resultado siempre en Directus, retry/timeout automatico |
