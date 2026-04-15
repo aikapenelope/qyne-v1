@@ -13,6 +13,14 @@ empresas (Whabi, Docflow, Aurora y futuras) desde un solo dashboard.
 
 No es un SaaS para vender. Es tu herramienta interna de marketing.
 
+El objetivo es un sistema L4: no solo ejecuta marketing, sino que
+piensa estrategicamente, experimenta, aprende de los resultados,
+y mejora autonomamente.
+
+```
+Research → Strategy → Generate → Distribute → Measure → Learn → Optimize → Repeat
+```
+
 ---
 
 ## Arquitectura
@@ -44,7 +52,7 @@ Cuatro componentes, cero redundancia:
 
 ---
 
-## Las 32 Capacidades
+## Las 35 Capacidades
 
 ### BLOQUE 1: GENERACION DE CONTENIDO
 
@@ -470,6 +478,166 @@ Code Review Agent con razonamiento multi-paso (2-5 steps).
 
 ---
 
+### BLOQUE 9: ESTRATEGIA Y CRECIMIENTO AUTONOMO (L4)
+
+Este bloque es lo que convierte el sistema de "ejecuta bien" a
+"piensa, ejecuta, aprende, mejora". Sin esto, tienes un sistema L3
+muy fuerte. Con esto, es L4.
+
+#### 33. Growth Strategist Agent (Decision Engine)
+
+El cerebro estrategico del sistema. Cada lunes produce un plan semanal
+basado en datos reales, no intuicion.
+
+**Inputs (lee automaticamente):**
+- Analytics Agent: performance de contenido de la semana anterior
+- Dash: metricas de negocio por producto (leads, conversion, revenue)
+- Competitor Intel: movimientos recientes de competidores
+- Lead Scorer: estado del pipeline de ventas
+- `marketing_learnings`: insights acumulados de semanas anteriores
+
+**Outputs (escribe en Directus `weekly_plan`):**
+- Canales a priorizar esta semana (y por que)
+- Topics a producir (con angulo especifico por marca)
+- Contenido a pausar o matar (bajo performance sostenido)
+- Allocation de esfuerzo: % contenido vs % SEO vs % social vs % research
+- KPIs target para la semana
+- Cross-brand insights: "esto funciono en Aurora, probar en Whabi"
+
+**Trigger:** Prefect flow cada lunes 7am. Lee datos, ejecuta Growth Strategist,
+guarda plan en Directus. El plan aparece en el dashboard NEXUS.
+
+**Reglas:**
+- Siempre justifica decisiones con datos (no "creo que" sino "engagement subio 40% cuando...")
+- Compara performance cross-brand para detectar patrones transferibles
+- Aplica el patron 70/20/10: 70% contenido probado, 20% variaciones, 10% experimentos nuevos
+- Si no hay datos suficientes (primeras semanas), produce plan conservador y lo dice explicitamente
+
+**Por que es critico:** Sin este agente, produces contenido sin direccion.
+Con el, cada pieza de contenido tiene un proposito estrategico.
+
+#### 34. Experimentation System
+
+Convierte la generacion de contenido en un loop de mejora continua.
+No es un sistema separado — es una extension del Content + Analytics workflow.
+
+**Como funciona:**
+
+1. **Generacion de variantes:** El Scriptwriter ya genera 3 variantes por brief
+   (emocional, data-driven, provocativo). Esto se extiende a hooks de social media:
+   mismo contenido → 3-5 hooks diferentes.
+
+2. **Publicacion A/B:** Las variantes se publican en horarios diferentes via Postiz.
+   Cada variante se tagea en Directus `social_posts` con `experiment_id` y `variant`.
+
+3. **Medicion:** Analytics Agent compara performance de variantes despues de 48h.
+   Metricas: engagement rate, saves, shares, completion rate.
+
+4. **Declaracion de ganador:** Si una variante supera a las demas por >20% en
+   engagement, se declara ganadora. Se registra en `marketing_learnings`.
+
+5. **Escalado:** El ganador se re-publica en mas plataformas/horarios.
+   Los perdedores se archivan con diagnostico de por que fallaron.
+
+**Patron 70/20/10 (gestionado por Growth Strategist):**
+- **70% Exploit** — Contenido con formatos/hooks que ya probaron funcionar
+- **20% Explore** — Variaciones de lo que funciona (nuevo hook, mismo formato)
+- **10% Leap** — Formatos o angulos completamente nuevos
+
+**Que se experimenta:**
+- Hooks (pregunta vs dato vs provocacion vs storytelling)
+- Formatos (carrusel vs reel vs thread vs post largo)
+- Horarios (manana vs tarde vs noche)
+- Pilares (AI trends vs tools vs business vs tutorials)
+
+**Coleccion Directus `experiments`:**
+```
+experiment_id, topic, variants[], start_date, end_date,
+winner_variant, winner_metric, learning_extracted, status
+```
+
+**Por que es critico:** Sin experimentacion, repites lo que "crees" que funciona.
+Con experimentacion, tienes datos de que realmente funciona. El sistema mejora
+cada semana automaticamente.
+
+#### 35. Marketing Learnings (Memoria Estructurada)
+
+Base de conocimiento que acumula lo que funciona y lo que no, por marca,
+canal, formato, y audiencia. Es la memoria a largo plazo del sistema.
+
+**Coleccion Directus `marketing_learnings`:**
+```
+brand: "docflow"
+channel: "instagram"
+category: "hook_type"
+insight: "Hooks emocionales generan 3.2x mas engagement que data-driven"
+evidence: "Comparacion de 12 posts en 4 semanas. Emocional avg 8.5% vs data 2.7%"
+confidence: "high"  (high/medium/low basado en cantidad de evidencia)
+date_learned: "2026-04-15"
+source: "experiment_042"  (link al experimento que genero el insight)
+applicable_to: ["docflow", "whabi"]  (marcas donde aplica)
+```
+
+**Quien escribe:**
+- Analytics Agent: despues de cada reporte semanal
+- Growth Strategist: despues de cada plan semanal (insights cross-brand)
+- Experiment System: despues de cada experimento completado
+
+**Quien lee:**
+- Content Team: antes de generar contenido, consulta learnings relevantes
+- Social Media Planner: al crear calendario, prioriza formatos que funcionan
+- Growth Strategist: al crear plan semanal, basa decisiones en learnings acumulados
+- SEO Strategist: al definir topics, consulta que angulos funcionan por marca
+
+**Implementacion en AgNO:** Skill `marketing-learnings` que los agentes cargan.
+El skill les ensena a consultar la coleccion antes de generar y a escribir
+nuevos insights cuando detectan patrones.
+
+**Multi-brand intelligence (tu ventaja competitiva):**
+El campo `applicable_to` permite que un insight de Aurora se aplique a Docflow.
+El Growth Strategist detecta estos patrones automaticamente:
+- "Formato listicle funciona en Docflow LinkedIn. Docflow y Whabi comparten audiencia B2B. Probar listicle para Whabi."
+- "Hook de pregunta funciona en Aurora Instagram. Aurora y Docflow son ambos health-adjacent. Probar en Docflow."
+
+Esto es algo que casi ninguna empresa tiene: aprendizaje cruzado entre marcas
+con evidencia estructurada.
+
+**Por que es critico:** Sin memoria estructurada, cada semana empiezas de cero.
+Con ella, el sistema acumula conocimiento y cada decision es mejor que la anterior.
+
+---
+
+### Como se conectan las 3 capacidades L4
+
+```
+Lunes 7am:
+  Prefect trigger → Growth Strategist Agent
+    Lee: analytics, CRM, learnings, experiments
+    Produce: weekly_plan en Directus
+
+Lunes-Viernes:
+  Content Team genera contenido segun weekly_plan
+    Lee: marketing_learnings antes de generar
+    Genera: 3-5 variantes por pieza (experimentacion)
+    Publica: via Postiz con experiment_id
+
+Viernes:
+  Analytics Agent genera reporte semanal
+    Compara: variantes de experimentos (declara ganadores)
+    Escribe: nuevos insights en marketing_learnings
+    Escala: ganadores a mas plataformas
+
+Lunes siguiente:
+  Growth Strategist lee los nuevos learnings
+    Ajusta: plan basado en lo que funciono
+    Detecta: patrones cross-brand
+    Produce: nuevo weekly_plan mejorado
+
+→ Loop infinito de mejora
+```
+
+---
+
 ## Decisiones de Arquitectura
 
 ### Context entre Agentes
@@ -534,7 +702,7 @@ Directus con layouts Kanban nativos. Deals pipeline para ventas. Support tickets
 
 | Componente | Tecnologia | Rol |
 |-----------|-----------|-----|
-| Agentes | AgNO (Python) | 42 agentes, 7 teams, 7 workflows, 24 skills |
+| Agentes | AgNO (Python) | 35 capacidades, 7+ teams, 7+ workflows, 24+ skills |
 | Orquestacion | Prefect | Flows deterministicos, schedules, ETL |
 | Data Layer | Directus + PostgreSQL | CRM, CMS, REST/GraphQL, Kanban, Flows |
 | Knowledge | LanceDB + Voyage AI | Vector search, RAG, embeddings |
@@ -551,37 +719,79 @@ Directus con layouts Kanban nativos. Deals pipeline para ventas. Support tickets
 
 ## Prioridad de Activacion
 
-### Fase 1 — Contenido (semanas 1-2)
+El orden esta disenado para que cada fase alimente la siguiente.
+No puedes tener Growth Strategist sin analytics. No puedes experimentar
+sin contenido publicado. No puedes aprender sin experimentos medidos.
+
+### Fase 1 — Contenido + Learnings Base (semanas 1-2)
 1. Content Production Workflow (trend → script → review)
 2. SEO Content Workflow (keyword → article → audit loop)
 3. Copywriter ES
+4. **Marketing Learnings** — coleccion en Directus + skill para agentes (cap. 35)
 
-### Fase 2 — Social Media (semanas 3-4)
-4. Social Media Workflow (IG + X + LinkedIn + audit)
-5. Social Media Planner (calendarios)
-6. Postiz setup + integracion con Directus
+> Desde el dia 1, todo contenido generado alimenta la memoria del sistema.
 
-### Fase 3 — CRM y Ventas (semanas 5-6)
-7. Pipeline de ventas Kanban en Directus
-8. Soporte Kanban por producto
-9. Lead scoring mejorado
-10. WhatsApp Support Team
+### Fase 2 — Social Media + Publicacion (semanas 3-4)
+5. Social Media Workflow (IG + X + LinkedIn + audit)
+6. Social Media Planner (calendarios)
+7. Postiz setup + integracion con Directus
+8. **Experimentacion basica** — 3 variantes de hook por post, tagging en Directus (cap. 34)
 
-### Fase 4 — Investigacion (semanas 7-8)
-11. Deep Research Workflow
-12. Crawler-first research (Prefect + Crawl4AI)
-13. Competitor Intelligence Workflow
-14. Marketing LATAM Team (coordinacion)
+> Con Postiz publicando y variantes tageadas, empiezas a acumular datos de A/B.
 
-### Fase 5 — Automatizacion (semanas 9-10)
-15. Video programatico (templates + rendering)
-16. Email Agent con HITL
-17. Invoice Agent con HITL
-18. Scheduler Agent
-19. Onboarding Agent
+### Fase 3 — Analytics + Decision Engine (semanas 5-6)
+9. Analytics Agent + reportes semanales
+10. Dash (business analytics)
+11. Sentiment analysis
+12. **Growth Strategist Agent** — plan semanal automatico cada lunes (cap. 33)
 
-### Fase 6 — Analytics y Optimizacion (semanas 11-12)
-20. Analytics Agent + reportes semanales
-21. Dash (business analytics)
-22. Sentiment analysis
-23. AI Perception Monitoring (como AI engines hablan de tus marcas)
+> El Growth Strategist necesita 2-4 semanas de datos de las fases 1-2.
+> Primeras semanas produce planes conservadores. Mejora con cada ciclo.
+
+### Fase 4 — CRM y Ventas (semanas 7-8)
+13. Pipeline de ventas Kanban en Directus
+14. Soporte Kanban por producto
+15. Lead scoring mejorado
+16. WhatsApp Support Team
+
+> El CRM alimenta al Growth Strategist con datos de conversion y pipeline.
+
+### Fase 5 — Investigacion (semanas 9-10)
+17. Deep Research Workflow
+18. Crawler-first research (Prefect + Crawl4AI)
+19. Competitor Intelligence Workflow
+20. Marketing LATAM Team (coordinacion)
+
+> Research alimenta al Growth Strategist con inteligencia competitiva.
+
+### Fase 6 — Automatizacion (semanas 11-12)
+21. Video programatico (templates + rendering)
+22. Email Agent con HITL
+23. Invoice Agent con HITL
+24. Scheduler Agent
+25. Onboarding Agent
+
+### Fase 7 — Optimizacion Avanzada (mes 4+)
+26. **Experimentacion completa** — A/B automatizado con declaracion de ganador y escalado (cap. 34)
+27. Content recycling — Prefect flow que re-publica top performers con variaciones
+28. AI Perception Monitoring — como AI engines hablan de tus marcas
+29. Revenue optimization — cuando haya 3+ meses de datos de deals en CRM
+30. Campaign orchestration — campanas full-funnel (contenido + email sequences)
+
+### El loop L4 completo (activo desde fase 3)
+
+```
+Semana N:
+  Lunes    → Growth Strategist produce plan (lee learnings + analytics)
+  Mar-Jue  → Content Team ejecuta plan (genera variantes, experimenta)
+  Viernes  → Analytics Agent mide resultados (declara ganadores)
+             Escribe nuevos learnings en Directus
+  
+Semana N+1:
+  Lunes    → Growth Strategist lee nuevos learnings
+             Ajusta plan (mas de lo que funciono, menos de lo que no)
+             Detecta patrones cross-brand
+  → Repeat
+```
+
+Cada semana el sistema es mejor que la anterior.
