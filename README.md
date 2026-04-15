@@ -1,6 +1,86 @@
-# QYNE v1
+# QYNE
 
-Plataforma empresarial unificada. Cada servicio es independiente con su propia base de datos. Directus es la fuente de verdad para datos de negocio. Los servicios se comunican solo via HTTP APIs.
+Multi-brand marketing platform. Manages content, SEO, social media, research,
+CRM, customer support, and analytics for multiple businesses from a single
+dashboard.
+
+## Architecture
+
+```
+Prefect ─── deterministic backbone (all marketing flows)
+  │
+  ├── tasks: invoke AgNO agents, Crawl4AI, httpx, Postiz CLI
+  │
+AgNO ───── AI intelligence (8 agents)
+  │
+  ├── 4 Prefect agents: Researcher, Writer, Analyst, Strategist
+  ├── 4 real-time agents: Support Router, Support Agent, Dash, Pal
+  │
+Directus ── data layer, CRM, Kanban, triggers
+  │
+Postiz ──── social media publishing (30+ platforms)
+```
+
+Prefect controls the flow. AgNO provides intelligence at specific steps.
+Directus stores everything. Postiz publishes.
+
+## Services
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| PostgreSQL 16 | 5432 | 2 databases: directus_db, prefect_db |
+| Redis 7 | 6379 | Directus cache |
+| RustFS | 9000/9001 | S3-compatible object storage |
+| Directus | 8055 | CMS + REST/GraphQL + MCP Server + CRM Kanban |
+| AgNO | 8000 | AgentOS (8 agents, 1 team) |
+| Frontend | 3000 | Next.js + CopilotKit (AG-UI) |
+| Prefect Server | 4200 | Workflow orchestration + dashboard |
+| Prefect Worker | - | Executes all marketing flows |
+| Postiz | - | Social media scheduling + publishing |
+| Uptime Kuma | 3001 | Health monitoring |
+| Traefik | 80/443 | Reverse proxy + SSL |
+
+## The 8 Agents
+
+| Agent | Role | Invoked by |
+|-------|------|-----------|
+| **Researcher** | Web search, knowledge base, competitor analysis, keyword research | Prefect tasks |
+| **Writer** | Articles, social posts, scripts, emails, copy, invoices | Prefect tasks |
+| **Analyst** | Performance reports, content evaluation, SEO audit, code review | Prefect tasks |
+| **Strategist** | Weekly plans, channel allocation, cross-brand insights | Prefect tasks |
+| **Support Router** | Routes WhatsApp messages to correct product context | AgNO real-time |
+| **Support Agent** | Customer support with CRM tools and knowledge base | AgNO real-time |
+| **Dash** | Business analytics, ad-hoc questions about metrics | AgNO real-time |
+| **Pal** | Personal assistant with persistent memory | AgNO real-time |
+
+## Prefect Marketing Flows
+
+| Flow | Schedule | What it does |
+|------|----------|-------------|
+| content_production | On-demand | Research → write 3 variants → evaluate → store |
+| seo_content | On-demand | Keywords → article → audit loop → publish-ready MDX |
+| social_media_generation | Daily | Read weekly plan → write posts per platform → audit → store |
+| social_media_publish | Daily | Read approved posts → Postiz CLI → log analytics |
+| deep_research | On-demand | Parallel research (N angles) → quality gate → synthesize |
+| competitor_intel | Weekly | Parallel (content + pricing + reviews) → synthesize |
+| growth_strategist | Mon 7am | Read analytics + CRM + learnings → produce weekly plan |
+| experiment_analysis | Fri 5pm | Compare A/B variants → declare winners → store learnings |
+| content_recycling | Weekly | Find top performers → generate variations → re-schedule |
+| lead_scoring | Daily 6am | Calculate scores → create deals automatically |
+| sentiment_analysis | Daily | Keyword-based sentiment scoring (0 tokens) |
+| sla_compliance | Daily | Calculate FRT/TTR → update SLA dashboard |
+
+Plus existing infrastructure flows: website_crawler, database_backup,
+health_check, data_sync, data_cleanup, etl_documents, knowledge_indexer,
+export_csv, import_csv, dedup_merger, data_enricher.
+
+## Brands
+
+| Brand | Product | Pricing |
+|-------|---------|---------|
+| Whabi | WhatsApp Business CRM | $49 / $149 / custom |
+| Docflow | Electronic Health Records | $99 / $249 / custom |
+| Aurora | Voice-first PWA | $0 / $29 / $79 |
 
 ## Quick Start
 
@@ -9,105 +89,64 @@ git clone https://github.com/aikapenelope/qyne-v1.git
 cd qyne-v1
 chmod +x setup.sh && ./setup.sh
 # Edit .env with your API keys, then:
-docker compose restart agno
+docker compose up -d
 ```
 
-## Services (12)
+## Access (via Tailscale)
 
-| Service | Database | Port | Purpose |
-|---------|----------|------|---------|
-| PostgreSQL | - | 5432 | 2 databases: directus_db, prefect_db |
-| Redis | - | 6379 | Directus cache |
-| RustFS | files on disk | 9000/9001 | S3-compatible object storage |
-| Reranker | model in memory | 7997 | Infinity (BAAI/bge-reranker-base) |
-| Directus | PostgreSQL (directus_db) | 8055 | CMS + REST/GraphQL + MCP Server |
-| Agno | SQLite + LanceDB | 8000 | AgentOS (identical to original nexus.py) |
-| Frontend | - | 3000 | Next.js + CopilotKit (AG-UI) |
-| n8n | SQLite | 5678 | Deterministic automations |
-| Prefect | PostgreSQL (prefect_db) | 4200 | Workflow orchestration |
-| Prefect Worker | - | - | Executes flows (scraping, ETL) |
-| Uptime Kuma | SQLite | 3001 | Health monitoring |
-| Traefik | - | 80/443 | Reverse proxy + SSL |
+| Dashboard | URL |
+|-----------|-----|
+| NEXUS (main) | `http://<tailscale-ip>:3000` |
+| AgentOS | `http://<tailscale-ip>:8000` |
+| Directus | `http://<tailscale-ip>:8055` |
+| Prefect | `http://<tailscale-ip>:4200` |
+| Uptime Kuma | `http://<tailscale-ip>:3001` |
+
+Internet exposure: only `/` (frontend) and `/whatsapp/webhook` via Traefik.
+Everything else: Tailscale only.
 
 ## Data Flow
 
 ```
-All business data → Directus REST API → PostgreSQL (directus_db)
+Prefect flows → invoke AgNO agents → structured output (Pydantic)
+                                   → store in Directus via REST API
+                                   → publish via Postiz CLI
 
-Agno agents    → POST /items/contacts, /items/tickets (via tools)
-n8n workflows  → POST /items/emails, /items/events (via Directus node)
-Prefect flows  → POST /items/scraped_data, /items/documents (via httpx)
+AgNO real-time → WhatsApp/chat → Directus CRM (contacts, tickets, conversations)
 
-Agno knowledge → LanceDB (local, /app/data/lancedb/)
-Agno sessions  → SQLite (local, /app/data/nexus.db)
+Crawl4AI → Directus documents → LanceDB (RAG knowledge base)
 ```
 
-## Internet Exposure
+## Documentation
 
-Only 2 routes exposed via Traefik:
-- `/` → Frontend (CopilotKit)
-- `/whatsapp/webhook` → Agno (Meta webhook)
+| Document | What it covers |
+|----------|---------------|
+| [EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md) | Quick reference of the entire system |
+| [MARKETING_PLATFORM.md](docs/MARKETING_PLATFORM.md) | All 35 capabilities, architecture, decisions, roadmap |
+| [TECHNICAL_ROADMAP.md](docs/TECHNICAL_ROADMAP.md) | Detailed migration plan with code references |
+| [MIGRATION_ROADMAP.md](docs/MIGRATION_ROADMAP.md) | Agent mapping (42 → 8) and file structure |
+| [ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) | Technical decisions with research backing |
+| [CAPABILITIES.md](docs/CAPABILITIES.md) | Raw inventory of current codebase |
 
-Everything else: Tailscale only.
+## Project Structure
 
-## Dashboards (via Tailscale)
+```
+services/
+  agno/                    # AgNO AgentOS
+    agents/                # 8 agents (researcher, writer, analyst, strategist,
+                           #           support, dash, pal)
+    app/                   # Config, models, shared components
+    tools/                 # Directus REST, Postiz CLI, agent invoker, sandbox
+    skills/                # 24 domain skills (seo-geo, content-strategy, etc.)
+    knowledge/             # Documents for RAG indexing
+  workers/                 # Prefect flows
+    flows/                 # All marketing + infrastructure flows
+  frontend/                # Next.js + CopilotKit dashboard
+config/                    # PostgreSQL, Redis, Traefik configs
+docker-compose.yml
+setup.sh
+```
 
-| Dashboard | URL |
-|-----------|-----|
-| os.agno.com | Connect to `http://<tailscale-ip>:8000` |
-| Directus | `http://<tailscale-ip>:8055` |
-| n8n | `http://<tailscale-ip>:5678` |
-| Prefect | `http://<tailscale-ip>:4200` |
-| Uptime Kuma | `http://<tailscale-ip>:3001` |
-| RustFS | `http://<tailscale-ip>:9001` |
+## License
 
----
-
-## Roadmap
-
-### Fase 1 — Deploy y verificacion
-
-- [x] 12 servicios con databases aisladas
-- [x] Agno identico al repo original (SQLite + LanceDB + sandbox Docker)
-- [x] Frontend completo (18 paginas, CopilotKit + AG-UI)
-- [x] setup.sh para primer deploy
-- [ ] Mergear PR y desplegar en VPS
-- [ ] Verificar que los 12 servicios arrancan healthy
-- [ ] Corregir errores de deploy si los hay
-
-### Fase 2 — Conectar servicios a Directus
-
-- [ ] Crear colecciones en Directus: contacts, companies, tickets, tasks, conversations, payments, documents, emails, scraped_data
-- [ ] Configurar n8n: instalar nodo Directus verificado, crear credenciales con API token
-- [ ] Primer workflow n8n: Directus trigger (nuevo item) → notificacion
-- [ ] Primer workflow n8n: Gmail → Directus (ingesta de emails)
-- [ ] Configurar Prefect: crear deployment para scraper_latam
-- [ ] Configurar Prefect: crear deployment para etl_documents
-- [ ] Primer schedule Prefect: scraping cada 6h
-
-### Fase 3 — Portar agentes del nexus_legacy.py
-
-- [ ] automation_agent (n8n MCP + Directus MCP)
-- [ ] cerebro team (router entre research, knowledge, automation)
-- [ ] whatsapp_support_team (whabi, docflow, aurora agents)
-- [ ] content_team (trend_scout, scriptwriter, creative_director, analytics)
-- [ ] product_dev_team, creative_studio, marketing_latam
-- [ ] agentes individuales (dash, pal, onboarding, email, scheduler, invoice)
-- [ ] workflows (7) y structured output models (Pydantic)
-- [ ] ResponseQualityEval y registry
-
-### Fase 4 — Produccion
-
-- [ ] Dominio + SSL (Let's Encrypt via Traefik)
-- [ ] Tailscale en VPS
-- [ ] WhatsApp Business API (Meta credentials)
-- [ ] Conectar os.agno.com via Tailscale
-- [ ] Configurar Uptime Kuma monitors para todos los servicios
-- [ ] Backup PostgreSQL → RustFS (Prefect flow)
-
-### Fase 5 — Optimizacion
-
-- [ ] Ajustar memory limits basado en `docker stats`
-- [ ] Evaluar RustFS como storage de Directus (crear bucket, cambiar config)
-- [ ] Evaluar reranker: conectar Agno a Infinity si mejora la busqueda
-- [ ] Evaluar knowledge isolation por proyecto (whabi, docflow, aurora)
+See [LICENSE](LICENSE).
