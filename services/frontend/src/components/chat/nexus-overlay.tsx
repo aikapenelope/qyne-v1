@@ -120,7 +120,7 @@ export default function NexusOverlay({ onClose }: { onClose: () => void }) {
     {
       label: "Contenido",
       icon: FileText,
-      prompt: "Crea un plan de contenido semanal para Whabi en Instagram",
+      prompt: "Crea un plan de contenido semanal para Docflow en Instagram",
     },
     {
       label: "Imagen",

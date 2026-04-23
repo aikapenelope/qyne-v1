@@ -18,7 +18,7 @@ contenido orientado a audiencia.
 ```
 Problema: "Pierdes 3 horas al dia respondiendo WhatsApp manualmente"
 Agitacion: "Mientras tanto, tus competidores ya automatizaron y atienden 5x mas clientes"
-Solucion: "Con Whabi, un agente AI responde en 5 segundos, 24/7"
+Solucion: "Con nuestro sistema, un agente AI responde en 5 segundos, 24/7"
 ```
 
 ### AIDA (Atencion → Interes → Deseo → Accion)

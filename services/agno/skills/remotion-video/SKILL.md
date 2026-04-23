@@ -24,7 +24,7 @@ animations.
 
 For each video, produce a JSON with:
 1. `template` — which template to use (from table above)
-2. `brand` — which product (docflow, whabi, aurora)
+2. `brand` — which product (docflow, aurora, nova)
 3. Content fields specific to the template
 
 ### PromoProduct JSON
@@ -57,5 +57,5 @@ For each video, produce a JSON with:
 | Brand | Accent Color | Tagline |
 |---|---|---|
 | docflow | #e94560 | Tu clinica, sin papel |
-| whabi | #25D366 | WhatsApp Business CRM |
+| nova | #FF6B35 | Nova |
 | aurora | #8B5CF6 | Voice-first para negocios |

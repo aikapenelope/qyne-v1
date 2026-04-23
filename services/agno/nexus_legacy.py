@@ -210,7 +210,7 @@ class VideoStoryboard(BaseModel):
 class SupportTicket(BaseModel):
     """Structured support interaction for CRM logging and analytics."""
 
-    product: str = Field(description="Product: whabi, docflow, or aurora")
+    product: str = Field(description="Product: docflow, aurora, or nova")
     intent: str = Field(
         description="Customer intent: faq, pricing, payment, complaint, "
         "technical_issue, appointment, document_status, subscription, other"
@@ -228,7 +228,7 @@ class SupportTicket(BaseModel):
 class PaymentConfirmation(BaseModel):
     """Structured payment request requiring human approval."""
 
-    product: str = Field(description="Product: whabi, docflow, or aurora")
+    product: str = Field(description="Product: docflow, aurora, or nova")
     client_name: str = Field(description="Client name as provided")
     amount: str = Field(description="Payment amount with currency (e.g., '$150 USD')")
     method: str = Field(
@@ -1116,17 +1116,6 @@ def save_article_file(contents: str, file_name: str, overwrite: bool = True) -> 
 
 
 # --- Domain skills for product support agents ---
-_whabi_skills = (
-    Skills(
-        loaders=[
-            LocalSkills(str(SKILLS_DIR / "whabi")),
-            LocalSkills(str(SKILLS_DIR / "agent-ops")),
-        ]
-    )
-    if SKILLS_DIR.exists()
-    else None
-)
-
 _docflow_skills = (
     Skills(
         loaders=[
@@ -1796,7 +1785,7 @@ _keyword_researcher = Agent(
         "KEYWORDS_SECONDARY: [3-5 related keywords]",
         "COMPETITION: [low/medium/high — are there good Spanish articles already?]",
         "DATA_AVAILABLE: [what numbers/stats exist for this topic]",
-        "ANGLE: [our unique angle — how Whabi/Docflow/Aurora fits]",
+        "ANGLE: [our unique angle — how Docflow/Aurora/Nova fits]",
         "ESTIMATED_IMPACT: [high/medium/low for GEO citation potential]",
     ],
     db=db,
@@ -1831,7 +1820,7 @@ _article_writer = Agent(
         "- 3-4 bullet points of features",
         "- Limitations (honest, builds trust)",
         "- Price",
-        "- Our product (Whabi/Docflow/Aurora) is ALWAYS #1 but with honest comparison",
+        "- Our product (Docflow/Aurora/Nova) is ALWAYS #1 but with honest comparison",
         "",
         "### 4. Comparison Table",
         "Markdown table with key differentiators across all entries.",
@@ -1881,7 +1870,7 @@ _seo_auditor = Agent(
         "- Meta description under 160 chars with keyword?",
         "- H2/H3 structure with keywords?",
         "- Comparison table present?",
-        "- Internal links to product pages (/whabi, /docflow, /aurora)?",
+        "- Internal links to product pages (/docflow, /aurora, /nova)?",
         "- At least 1500 words?",
         "",
         "## Output format",
@@ -2000,7 +1989,7 @@ code_review_agent = Agent(
 # ---------------------------------------------------------------------------
 # Dash — Data Analytics Agent
 # ---------------------------------------------------------------------------
-# Queries Directus CRM for Whabi/Docflow/Aurora data and produces insights.
+# Queries Directus CRM for Docflow/Aurora/Nova data and produces insights.
 # Learns query patterns, metric definitions, and business rules over time.
 # NOTE: Uses Directus REST API for CRM data access.
 
@@ -2014,7 +2003,7 @@ if _automation_tools:
 dash = Agent(
     name="Dash",
     id="dash",
-    role="Data analytics agent for Whabi, Docflow, and Aurora business metrics",
+    role="Data analytics agent for Docflow, Aurora, and Nova business metrics",
     model=TOOL_MODEL,
     tools=_dash_tools,
     tool_call_limit=5,
@@ -2026,7 +2015,7 @@ dash = Agent(
         "You are Dash, a self-learning data analytics agent.",
         "",
         "## Your Purpose",
-        "You answer business questions about Whabi, Docflow, and Aurora using",
+        "You answer business questions about Docflow, Aurora, and Nova using",
         "data from Directus CRM. You don't just fetch data — you interpret it,",
         "find patterns, and explain what it means for the business.",
         "",
@@ -2046,7 +2035,6 @@ dash = Agent(
         "4. **Interpret**: explain what the numbers mean for the business",
         "",
         "## Product Context",
-        "- **Whabi**: WhatsApp CRM. Key metrics: leads, conversion rate, response time",
         "- **Docflow**: EHR system. Key metrics: documents processed, compliance rate",
         "- **Aurora**: Voice PWA. Key metrics: active users, voice commands/day, retention",
         "",
@@ -2161,7 +2149,6 @@ pal = Agent(
 _onboarding_skills = (
     Skills(
         loaders=[
-            LocalSkills(str(SKILLS_DIR / "whabi")),
             LocalSkills(str(SKILLS_DIR / "docflow")),
             LocalSkills(str(SKILLS_DIR / "aurora")),
             LocalSkills(str(SKILLS_DIR / "agent-ops")),
@@ -2190,7 +2177,7 @@ onboarding_agent = Agent(
         "",
         "## Products You Onboard",
         "",
-        "### Whabi (WhatsApp Business CRM)",
+        "### General WhatsApp Business API Setup",
         "1. Create WhatsApp Business account on Meta Business Suite",
         "2. Get API credentials (phone_number_id, access_token)",
         "3. Configure webhook URL pointing to their server",
@@ -2384,14 +2371,13 @@ invoice_agent = Agent(
         "You respond in Spanish (Latin America neutral).",
         "",
         "## What you handle",
-        "- Generate price quotes for Whabi/Docflow/Aurora plans",
+        "- Generate price quotes for Docflow/Aurora/Nova plans",
         "- Create invoice summaries (not actual PDF invoices)",
         "- Track payment status via CRM notes",
         "- Calculate totals with taxes (IVA 19% for Colombia)",
         "- Record payment confirmations (requires @approval)",
         "",
         "## Pricing Reference",
-        "- Whabi Starter: $49/mes | Pro: $149/mes | Enterprise: custom",
         "- Docflow Basic: $99/mes | Pro: $249/mes | Enterprise: custom",
         "- Aurora Free: $0 | Pro: $29/mes | Business: $79/mes",
         "",
@@ -2442,7 +2428,7 @@ _product_manager = Agent(
     pre_hooks=_guardrails,
     skills=_skills,
     instructions=[
-        "You are a product manager for AikaLabs (Whabi, Docflow, Aurora).",
+        "You are a product manager for AikaLabs (Docflow, Aurora, Nova).",
         "",
         "## What you do",
         "- Analyze user feedback and feature requests",
@@ -2553,7 +2539,6 @@ product_dev_team = Team(
         "4. Synthesize everything into a final recommendation",
         "",
         "## Products context",
-        "- Whabi: WhatsApp Business CRM (leads, campaigns, messaging)",
         "- Docflow: EHR system (health records, documents, compliance)",
         "- Aurora: Voice-first PWA (Nuxt 3, Clerk, Groq Whisper)",
     ],
@@ -2828,7 +2813,6 @@ marketing_latam = Team(
         "4. Sintetiza todo en un plan de marketing listo para ejecutar",
         "",
         "## Contexto de productos",
-        "- Whabi: CRM de WhatsApp Business (leads, campanas, mensajeria)",
         "- Docflow: Sistema EHR (historias clinicas, documentos, compliance)",
         "- Aurora: PWA voice-first (Nuxt 3, Clerk, Groq Whisper)",
         "",
@@ -2950,57 +2934,6 @@ _support_tools = [
     log_conversation,
 ]
 
-# --- Whabi Support Agent ---
-whabi_support_agent = Agent(
-    name="Whabi Support",
-    id="whabi-support",
-    role="Customer support for Whabi WhatsApp Business CRM",
-    model=TOOL_MODEL,
-    tools=_support_tools + (_automation_tools or []),  # type: ignore[operator]
-    tool_call_limit=5,
-    pre_hooks=_guardrails,
-    post_hooks=[_quality_eval],
-    skills=_whabi_skills,
-    instructions=[
-        "You are the support agent for Whabi, a WhatsApp Business CRM.",
-        "You respond in Spanish (Latin America neutral). Be professional but warm.",
-        "",
-        "## What you handle",
-        "- Pricing and plan questions (starter, pro, enterprise)",
-        "- How to set up WhatsApp Business API integration",
-        "- Lead management: importing contacts, scoring, pipelines",
-        "- Campaign creation: templates, scheduling, bulk messaging",
-        "- Media handling: sending images, documents, voice messages",
-        "- Payment confirmation: use confirm_payment tool (requires admin approval)",
-        "- CRM integration with Directus: contacts, companies, tasks",
-        "",
-        "## Lead Scoring (apply when someone asks about buying)",
-        "- Score 1-3: just browsing, no specific need",
-        "- Score 4-6: asked about features or pricing",
-        "- Score 7-8: requested demo or pricing details",
-        "- Score 9-10: ready to buy, asked for invoice/contract",
-        "",
-        "## Rules",
-        "- ALWAYS save the contact using save_contact when you learn their name, email, or phone",
-        "- ALWAYS log the conversation using log_conversation at the END of every interaction",
-        "- If the client mentions their company, use save_company",
-        "- ALWAYS log interactions using log_support_ticket after resolving",
-        "- For payments: ALWAYS use confirm_payment (never confirm manually)",
-        "- For complaints or disputes: use escalate_to_human",
-        "- Never share internal system details (IPs, database names, API keys)",
-        "- Business hours: 8am-8pm. Outside hours, acknowledge and promise follow-up",
-        "- Use formal 'usted' on first contact, switch to 'tu' only if client does first",
-    ],
-    db=db,
-    learning=_learning_full,
-    add_history_to_context=True,
-    num_history_runs=5,
-    add_datetime_to_context=True,
-    markdown=True,
-    enable_agentic_memory=True,
-    compression_manager=_compression,
-)
-
 # --- Docflow Support Agent ---
 docflow_support_agent = Agent(
     name="Docflow Support",
@@ -3116,13 +3049,12 @@ general_support_agent = Agent(
         "",
         "## What you handle",
         "- General company questions (who we are, what we do)",
-        "- Product comparison: help clients choose between Whabi, Docflow, Aurora",
+        "- Product comparison: help clients choose between Docflow, Aurora, Nova",
         "- Pricing overview across all products",
         "- Partnership and integration inquiries",
         "- Messages that don't clearly belong to one product",
         "",
         "## Product Summary (for routing hints)",
-        "- **Whabi**: WhatsApp Business CRM. Leads, campaigns, messaging.",
         "- **Docflow**: Electronic Health Records. Documents, compliance, clinical workflows.",
         "- **Aurora**: Voice-first PWA. Tasks, notes, business operations via voice.",
         "",
@@ -3153,10 +3085,9 @@ whatsapp_support_team = Team(
     name="WhatsApp Support",
     description=(
         "Customer support team for WhatsApp. Routes messages to the correct "
-        "product agent (Whabi, Docflow, Aurora) or general support."
+        "product agent (Docflow, Aurora) or general support."
     ),
     members=[
-        whabi_support_agent,
         docflow_support_agent,
         aurora_support_agent,
         general_support_agent,
@@ -3172,13 +3103,12 @@ whatsapp_support_team = Team(
         "Route each message to the BEST agent based on content.",
         "",
         "## Routing rules (pick ONE agent):",
-        "- WhatsApp, CRM, leads, campaigns, messaging, contacts: → Whabi Support",
         "- Health records, EHR, documents, patients, compliance, medical: → Docflow Support",
         "- Voice, PWA, app, transcription, Whisper, tasks, notes: → Aurora Support",
         "- General questions, company info, product comparison, unclear: → General Support",
         "",
         "## Signals to look for:",
-        "- Product names mentioned explicitly (whabi, docflow, aurora)",
+        "- Product names mentioned explicitly (docflow, aurora, nova)",
         "- Domain keywords (CRM, EHR, voice, PWA, leads, patients)",
         "- If the message mentions multiple products, route to General Support",
         "- If the message is a greeting with no context, route to General Support",
@@ -3521,7 +3451,7 @@ _schedule_mgr.create(
     name="weekly-competitor-intel",
     cron="0 9 * * 1",
     endpoint="/workflows/competitor-intelligence/runs",
-    payload={"message": "Generate weekly competitor intelligence report for Whabi, Docflow, Aurora competitors"},
+    payload={"message": "Generate weekly competitor intelligence report for Docflow, Aurora competitors"},
     description="Weekly competitor analysis across content, pricing, and reviews",
     timezone="America/Bogota",
     if_exists="update",
@@ -3631,7 +3561,7 @@ if _agui_available:
 if os.getenv("WHATSAPP_ACCESS_TOKEN"):
     _interfaces.append(
         Whatsapp(
-            team=whatsapp_support_team,  # Product-specific routing (Whabi/Docflow/Aurora)
+            team=whatsapp_support_team,  # Product-specific routing (Docflow/Aurora)
             phone_number_id=os.getenv("WHATSAPP_PHONE_ID"),
             access_token=os.getenv("WHATSAPP_ACCESS_TOKEN"),
             verify_token=os.getenv("WHATSAPP_VERIFY_TOKEN", "nexus-verify"),
@@ -3709,7 +3639,6 @@ agent_os = AgentOS(
         creative_director,
         analytics_agent,
         code_review_agent,
-        whabi_support_agent,
         docflow_support_agent,
         aurora_support_agent,
         general_support_agent,

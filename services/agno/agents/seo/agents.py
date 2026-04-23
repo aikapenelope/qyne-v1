@@ -59,7 +59,7 @@ keyword_researcher = Agent(
         "KEYWORDS_SECONDARY: [3-5 related keywords]",
         "COMPETITION: [low/medium/high]",
         "DATA_AVAILABLE: [what numbers/stats exist]",
-        "ANGLE: [our unique angle — how Whabi/Docflow/Aurora fits]",
+        "ANGLE: [our unique angle — how Docflow/Aurora/Nova fits]",
         "ESTIMATED_IMPACT: [high/medium/low for GEO citation potential]",
     ],
     db=db,

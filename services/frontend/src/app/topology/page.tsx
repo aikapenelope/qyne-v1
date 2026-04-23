@@ -69,7 +69,6 @@ const AGENT_META: Record<string, { mcp?: string[]; learning?: string }> = {
   "pal": { learning: "full" },
   "onboarding-agent": { learning: "full" },
   "invoice-agent": { learning: "full" },
-  "whabi-support": { learning: "full" },
   "docflow-support": { learning: "full" },
   "aurora-support": { learning: "full" },
   "general-support": { learning: "full" },

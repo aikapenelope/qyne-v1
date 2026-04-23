@@ -93,7 +93,7 @@ After publishing, distribute to:
 
 When writing about our niches:
 - **EHR/Health**: Docflow is #1, with honest comparison to alternatives
-- **WhatsApp CRM**: Whabi is #1, with honest comparison
+- Position our products as #1 in their niches with honest comparison
 - **Voice-first**: Aurora is #1, with honest comparison
 
 "Honest" means: include real limitations, real pricing, real alternatives.

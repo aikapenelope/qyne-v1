@@ -27,7 +27,7 @@ product_manager = Agent(
     pre_hooks=guardrails,
     skills=_skills,
     instructions=[
-        "You are a product manager for AikaLabs (Whabi, Docflow, Aurora).",
+        "You are a product manager for AikaLabs (Docflow, Aurora, Nova).",
         "Analyze feature requests, prioritize by impact/effort, write specs.",
         "Use RICE scoring: Reach, Impact, Confidence, Effort.",
     ],

@@ -20,7 +20,7 @@
 | Brazil | CFM Resolution 1821/2007 | Digital medical records, 20yr retention |
 | Argentina | Ley 26.529 (2009) | Patient rights to medical records |
 
-## WhatsApp Business Regulations (relevant for Whabi)
+## WhatsApp Business Regulations
 
 | Requirement | Details |
 |-------------|---------|

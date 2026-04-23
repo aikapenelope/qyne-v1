@@ -58,7 +58,7 @@ interface SessionEntry {
 
 const SUGGESTIONS = [
   { text: "Investiga las ultimas tendencias en AI agents", icon: "🔍" },
-  { text: "Crea un plan de marketing para Whabi", icon: "📊" },
+  { text: "Crea un plan de marketing para Docflow", icon: "📊" },
   { text: "Genera una imagen para Instagram de Aurora", icon: "🎨" },
   { text: "Analiza el feedback de clientes de Docflow", icon: "📋" },
   { text: "Redacta un email de seguimiento para un lead", icon: "✉️" },

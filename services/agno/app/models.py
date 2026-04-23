@@ -98,7 +98,7 @@ class VideoStoryboard(BaseModel):
 class SupportTicket(BaseModel):
     """Structured support interaction for CRM logging and analytics."""
 
-    product: str = Field(description="Product: whabi, docflow, or aurora")
+    product: str = Field(description="Product: docflow, aurora, or nova")
     intent: str = Field(
         description="Customer intent: faq, pricing, payment, complaint, "
         "technical_issue, appointment, document_status, subscription, other"
@@ -118,7 +118,7 @@ class SupportTicket(BaseModel):
 class PaymentConfirmation(BaseModel):
     """Structured payment request requiring human approval."""
 
-    product: str = Field(description="Product: whabi, docflow, or aurora")
+    product: str = Field(description="Product: docflow, aurora, or nova")
     client_name: str = Field(description="Client name as provided")
     amount: str = Field(description="Payment amount with currency (e.g., '$150 USD')")
     method: str = Field(

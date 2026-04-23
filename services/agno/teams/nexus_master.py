@@ -64,7 +64,7 @@ nexus_master = Team(
         "- Product specs, features, UX → Product Development",
         "- Image/video generation → Creative Studio",
         "- Spanish marketing, SEO, social → Marketing LATAM",
-        "- WhatsApp support (Whabi/Docflow/Aurora) → WhatsApp Support",
+        "- WhatsApp support (Docflow/Aurora) → WhatsApp Support",
         "",
         "### Individual Agents",
         "- Data analytics, business metrics → Dash",

@@ -56,7 +56,7 @@ You have these MCP tools from @directus/content-mcp:
   "email": "pedro@empresa.com",
   "phone": "0412323123",
   "company": "uuid-of-company",
-  "product": "whabi",
+  "product": "docflow",
   "lead_score": 7,
   "status": "lead",
   "source": "whatsapp",
@@ -65,7 +65,7 @@ You have these MCP tools from @directus/content-mcp:
   "notes": "Interesado en plan pro"
 }
 ```
-- `product`: whabi | docflow | aurora
+- `product`: docflow | aurora | nova
 - `status`: lead | client | churned
 - `source`: whatsapp | web | email | manual
 - `company`: UUID reference to companies collection
@@ -95,7 +95,7 @@ You have these MCP tools from @directus/content-mcp:
   "intent": "pricing",
   "sentiment": "positive",
   "lead_score": 7,
-  "agent_name": "whabi-support"
+  "agent_name": "docflow-support"
 }
 ```
 - `channel`: whatsapp | web | email
@@ -127,7 +127,7 @@ You have these MCP tools from @directus/content-mcp:
   "reference": "REF-2026-001",
   "status": "approved",
   "approved_by": "nexus-agent",
-  "product": "whabi"
+  "product": "docflow"
 }
 ```
 - `status`: pending | approved | rejected
@@ -136,7 +136,7 @@ You have these MCP tools from @directus/content-mcp:
 ```json
 {
   "contact": "uuid-of-contact",
-  "title": "Seguimiento: Pedro Gomez (Whabi)",
+  "title": "Seguimiento: Pedro Gomez (Docflow)",
   "body": "Enviar cotizacion del plan pro",
   "status": "todo",
   "due_date": "2026-03-30T10:00:00",
@@ -233,7 +233,7 @@ read-items collection=payments filter={"status": {"_eq": "pending"}}
 | `_contains` | Contains text | `{"first_name": {"_contains": "Pedro"}}` |
 | `_gte` | Greater or equal | `{"lead_score": {"_gte": 7}}` |
 | `_lte` | Less or equal | `{"amount": {"_lte": 100}}` |
-| `_in` | In list | `{"product": {"_in": ["whabi", "docflow"]}}` |
+| `_in` | In list | `{"product": {"_in": ["docflow", "aurora"]}}` |
 | `_null` | Is null | `{"company": {"_null": true}}` |
 | `_nnull` | Not null | `{"email": {"_nnull": true}}` |
 
@@ -241,7 +241,7 @@ read-items collection=payments filter={"status": {"_eq": "pending"}}
 
 | Product | Description | Redis DB | MinIO Buckets |
 |---------|-------------|----------|---------------|
-| **Whabi** | WhatsApp Business CRM | DB 0 | whabi-media, whabi-documents |
+| **Nova** | (coming soon) | TBD | TBD |
 | **Docflow** | Electronic Health Records | DB 1 | docflow-documents |
 | **Aurora** | Voice-first business PWA | DB 2 | aurora-assets |
 
