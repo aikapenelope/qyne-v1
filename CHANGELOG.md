@@ -20,6 +20,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Let's Encrypt SSL** on Traefik for `qynewa.aikalabs.cc`.
 - **WhatsApp Setup Roadmap** (`docs/WHATSAPP_SETUP_ROADMAP.md`) with
   sprint-based plan for Meta Cloud API connection.
+- **Contact upsert**: `save_contact` now searches by phone number before
+  creating. If a contact exists, it updates instead of creating a duplicate.
+- **Company upsert**: `save_company` searches by name before creating.
+- **FK linking**: All tools (`confirm_payment`, `log_support_ticket`,
+  `escalate_to_human`, `log_conversation`) now accept a `phone` parameter
+  and automatically link records to the matching contact via `contact_id`.
+- **Directus helpers**: `_directus_read`, `_directus_update`,
+  `_find_contact_by_phone`, `_find_company_by_name` for CRM operations.
 
 ### Changed
 - WhatsApp webhook router now uses `Host(qynewa.aikalabs.cc)` with TLS
@@ -27,6 +35,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - General Support agent now uses reply buttons to ask customers which
   product they need help with, instead of plain text.
 - Hetzner firewall (`fw-mastra`) opened ports 80/443 for Traefik.
+- `save_contact` returns the contact ID in its response for downstream use.
+- `save_company` returns the company ID in its response.
+- `confirm_payment` links payments to contacts when phone is provided.
+- All tools gracefully handle missing UPDATE permissions (soft warning
+  instead of crash).
 
 ### Removed
 - **Whabi** product: agent, skills directory, routing rules, and all
