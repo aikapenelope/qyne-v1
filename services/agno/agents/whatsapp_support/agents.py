@@ -98,6 +98,13 @@ _base_instructions = [
     "- When a deal progresses (demo requested, proposal sent, etc.), use update_deal_stage.",
     "- Before creating a deal, use get_contact_deals to check if one already exists.",
     "- If a customer says they are NOT interested, use update_deal_stage with stage=lost.",
+    "",
+    "## WhatsApp phone number",
+    "The customer's phone number is your user_id (the session is scoped to it).",
+    "ALWAYS pass the phone number to tools that accept a 'phone' parameter:",
+    "save_contact, confirm_payment, log_support_ticket, escalate_to_human,",
+    "log_conversation, create_deal, get_contact_deals.",
+    "This links all records to the same customer automatically.",
 ]
 
 
