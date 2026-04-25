@@ -7,133 +7,121 @@ con el sistema de soporte y cobro de Docflow, Aurora y Nova.
 
 ## Estado actual de la plataforma
 
-### Lo que YA esta listo
+### LISTO (verificado)
 
-| Componente | Estado | Detalle |
-|------------|--------|---------|
-| WhatsApp Support Team (router) | LISTO | Rutea a Docflow Support, Aurora Support, General Support |
-| Agentes de soporte por producto | LISTO | Cada uno con skills, knowledge base, learning, guardrails |
-| Interfaz WhatsApp en Agno | LISTO | `Whatsapp(agent=whatsapp_support_team)` en main.py |
-| Tools de negocio | LISTO | confirm_payment, log_support_ticket, save_contact, etc. |
-| Colecciones en Directus | LISTO | contacts (8), companies, tickets, payments, conversations, tasks, events (15) |
-| Traefik webhook route | LISTO | `Path(/whatsapp/webhook)` -> agno:8000 |
-| Variables de entorno | LISTO (template) | En .env.example y docker-compose.yml |
-| Agno AgentOS corriendo | LISTO | 11 contenedores healthy, 3+ semanas uptime |
+| Componente | Detalle |
+|------------|---------|
+| WhatsApp Support Team (router) | Rutea a Docflow Support, Aurora Support, General Support |
+| Agentes de soporte por producto | Skills, knowledge base, learning, guardrails |
+| Interfaz WhatsApp en Agno | `Whatsapp(agent=whatsapp_support_team)` en main.py |
+| Tools de negocio | confirm_payment, log_support_ticket, save_contact, escalate_to_human, log_conversation |
+| Directus CRM | 7 colecciones funcionando: contacts (8), companies, tickets, payments, conversations, tasks, events (15) |
+| Dominio DNS | `qynewa.aikalabs.cc` -> `89.167.96.99` (Cloudflare, DNS only) |
+| Firewall Hetzner | Puertos 22, 80, 443 abiertos |
+| SSL Let's Encrypt | Certificado valido para `qynewa.aikalabs.cc` (expira Jul 24 2026) |
+| Traefik webhook route | `Host(qynewa.aikalabs.cc) && Path(/whatsapp/webhook)` con TLS |
+| Agno AgentOS | 11 contenedores healthy |
 
-### Lo que FALTA (solo 5 cosas)
+### PENDIENTE (solo Meta)
 
-| # | Componente | Tipo | Depende de |
-|---|------------|------|------------|
-| 1 | Dominio + HTTPS | Infra | Nada (hacer ya) |
-| 2 | Numero registrado en Meta | Meta | Numero de Twilio |
-| 3 | Token permanente + App Secret | Meta | Meta App creada |
-| 4 | Variables en .env del servidor | Config | #2 y #3 |
-| 5 | Webhook registrado en Meta | Meta | #1 y #4 |
-
-> La plataforma esta lista a nivel de codigo. Solo falta la conexion
-> con Meta y HTTPS para el webhook.
-
----
-
-## Sprint 1: HTTPS + Meta App (yo hago la infra, tu haces Meta)
-
-**Objetivo:** Tener HTTPS funcionando y la Meta App creada.
-
-### 1A. Dominio + SSL en Traefik (lo hago yo)
-
-Necesito que me confirmes:
-- Que dominio usar (ej: `api.tudominio.com`)
-- Acceso a Cloudflare para crear el registro DNS
-- O si prefieres que use Tailscale Funnel como alternativa temporal
-
-Lo que voy a hacer:
-1. Agregar cert resolver (Let's Encrypt) a `traefik.yml`
-2. Actualizar labels del router de WhatsApp con Host + TLS
-3. Crear PR con los cambios
-4. Tu aplicas el DNS en Cloudflare
-5. Reiniciamos Traefik y verificamos HTTPS
-
-### 1B. Crear Meta App y registrar numero (tu lo haces)
-
-1. Ir a [developers.facebook.com/apps](https://developers.facebook.com/apps)
-2. Create App > nombre: "QYNE Support"
-3. Use case: "Connect with customers through WhatsApp"
-4. Vincular Business Portfolio
-5. En WhatsApp > API Setup > Add phone number
-6. Ingresar el numero de Twilio
-7. Recibir OTP en Twilio Console > Messaging Logs
-8. Verificar el numero
-9. Anotar: **Phone Number ID**
-
-### Entregable Sprint 1
-- HTTPS respondiendo en `https://tudominio.com/whatsapp/webhook`
-- Meta App creada con numero verificado
-- Phone Number ID anotado
+| # | Que falta | Quien |
+|---|-----------|-------|
+| 1 | Numero de Twilio registrado en Meta | Tu |
+| 2 | System User token permanente | Tu |
+| 3 | App Secret | Tu |
+| 4 | Variables en `.env` + reiniciar Agno | Tu (o yo via SSH) |
+| 5 | Webhook registrado en Meta | Tu |
 
 ---
 
-## Sprint 2: Conectar Meta a QYNE + primer test
+## Sprint 2: Conectar Meta a QYNE
 
-**Objetivo:** Primer mensaje de WhatsApp respondido por Agno.
+> Sprint 1 (infra) ya esta completado: firewall, dominio, SSL, Traefik.
 
-### 2A. Token permanente (tu lo haces)
+### 2A. Registrar numero de Twilio en Meta (tu)
+
+1. Ir a [Meta App Dashboard](https://developers.facebook.com/apps) > tu app
+2. WhatsApp > API Setup > Add phone number
+3. Ingresar el numero de Twilio (formato `+1234567890`)
+4. Meta envia OTP por SMS
+5. Ver el SMS en **Twilio Console > Phone Numbers > Messaging Logs**
+6. Ingresar el codigo en Meta
+7. Anotar el **Phone Number ID** que aparece
+
+> IMPORTANTE: Registrar directo en Meta, NO via Twilio Console.
+> Asi los webhooks van a tu servidor, no a Twilio.
+
+### 2B. Crear System User token permanente (tu)
 
 1. [business.facebook.com/latest/settings](https://business.facebook.com/latest/settings) > System Users > Add
 2. Nombre: "QYNE Bot", rol: Admin
 3. Asignar assets:
    - Meta App > Manage app (full control)
    - WhatsApp Business Account > Manage (full control)
-4. Generate Token:
+4. Generate Token con permisos:
    - `whatsapp_business_messaging`
    - `whatsapp_business_management`
-5. Copiar token (no expira)
-6. Meta App > Settings > Basic > copiar **App Secret**
+5. Copiar el token (no expira)
 
-### 2B. Configurar servidor (lo hago yo o tu via SSH)
+### 2C. Obtener App Secret (tu)
 
-Editar `/opt/qyne-v1/.env`:
+1. Meta App > Settings > Basic
+2. Copiar **App Secret**
+
+### 2D. Configurar servidor
+
+Editar `/opt/qyne-v1/.env` via SSH:
+
 ```bash
-WHATSAPP_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxx
-WHATSAPP_PHONE_NUMBER_ID=123456789012345
-WHATSAPP_VERIFY_TOKEN=qyne-verify-2026
-WHATSAPP_APP_SECRET=abcdef1234567890
+ssh root@89.167.96.99  # via Tailscale
+cd /opt/qyne-v1
+nano .env
+```
+
+Descomentar y llenar:
+
+```bash
+WHATSAPP_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxx     # del paso 2B
+WHATSAPP_PHONE_NUMBER_ID=123456789012345     # del paso 2A
+WHATSAPP_VERIFY_TOKEN=qyne-verify-2026       # no cambiar
+WHATSAPP_APP_SECRET=abcdef1234567890         # del paso 2C
 ```
 
 Reiniciar Agno:
+
 ```bash
-cd /opt/qyne-v1 && docker compose up -d agno
+docker compose up -d agno
+docker logs -f qyne-agno
+# Buscar en logs: "WhatsApp interface registered"
 ```
 
-### 2C. Registrar webhook en Meta (tu lo haces)
+### 2E. Registrar webhook en Meta (tu)
 
 1. Meta App > WhatsApp > Configuration
 2. Webhook > Edit:
-   - Callback URL: `https://tudominio.com/whatsapp/webhook`
-   - Verify token: `qyne-verify-2026`
-3. "Verify and Save" (Agno responde automaticamente)
-4. Suscribir campo: `messages`
+   - **Callback URL:** `https://qynewa.aikalabs.cc/whatsapp/webhook`
+   - **Verify token:** `qyne-verify-2026`
+3. Click **"Verify and Save"**
+   - Agno responde automaticamente al challenge
+4. Suscribir al campo: **messages**
 
-### 2D. Agregar testers
+### 2F. Agregar testers
 
 1. Meta App > App Roles > Roles
 2. Agregar tu numero personal como Tester
-3. Esto permite probar sin publicar la app
+3. Permite probar sin publicar la app
 
-### 2E. Primer test
+### 2G. Primer test
 
-1. Desde tu WhatsApp, envia "Hola" al numero registrado
+1. Desde tu WhatsApp, envia "Hola" al numero de Twilio
 2. Verificar respuesta del agente
 3. Verificar logs: `docker logs qyne-agno --tail 20`
 
-### Entregable Sprint 2
-- Mensaje enviado por WhatsApp y respondido por Agno
-- Webhook verificado y recibiendo eventos
+**Entregable:** Mensaje enviado y respondido por Agno via WhatsApp.
 
 ---
 
 ## Sprint 3: Testing completo
-
-**Objetivo:** Validar routing, tools, y sesiones.
 
 ### 3A. Test de routing
 
@@ -146,8 +134,8 @@ cd /opt/qyne-v1 && docker compose up -d agno
 
 ### 3B. Test de tools (verificar en Directus)
 
-| Accion del cliente | Tool que se activa | Verificar en |
-|--------------------|--------------------|-------------|
+| Accion del cliente | Tool | Verificar en |
+|--------------------|------|-------------|
 | Da su nombre y telefono | save_contact | `contacts` |
 | Pregunta por precios | log_support_ticket | `tickets` |
 | Dice que quiere pagar | confirm_payment | `payments` (requiere aprobacion) |
@@ -162,26 +150,20 @@ cd /opt/qyne-v1 && docker compose up -d agno
 
 ### 3D. Test de edge cases
 
-- Enviar imagen: el agente debe recibirla
-- Enviar audio: el agente debe recibirlo
-- Enviar mensaje muy largo (>1000 chars)
-- No responder por 24h y verificar que el agente no puede enviar
-  mensajes fuera de la ventana (solo templates)
+- Enviar imagen, audio, documento
+- Mensaje muy largo (>1000 chars)
+- Verificar que fuera de la ventana de 24h no se envian mensajes
 
-### Entregable Sprint 3
-- Todos los tests pasando
-- Lista de bugs encontrados (si hay)
+**Entregable:** Todos los tests pasando, lista de bugs si hay.
 
 ---
 
 ## Sprint 4: Produccion
 
-**Objetivo:** App publicada, templates creados, monitoreo activo.
-
 ### 4A. Verificacion del negocio en Meta
 
 1. Meta Business Suite > Settings > Business Verification
-2. Subir documentos del negocio (nombre legal, direccion, ID)
+2. Subir documentos (nombre legal, direccion, ID del negocio)
 3. Esperar aprobacion (1-5 dias habiles)
 
 ### 4B. App Review
@@ -198,63 +180,54 @@ cd /opt/qyne-v1 && docker compose up -d agno
 
 ### 4D. Message templates
 
-Crear templates para mensajes fuera de la ventana de 24h:
-
-| Template | Categoria | Uso |
-|----------|-----------|-----|
+| Template | Categoria | Ejemplo |
+|----------|-----------|---------|
 | `payment_confirmation` | utility | "Hola {{1}}, tu pago de {{2}} fue recibido." |
 | `appointment_reminder` | utility | "Recordatorio: tu cita es manana {{1}} a las {{2}}." |
 | `welcome_new_client` | marketing | "Bienvenido a {{1}}! Soy tu asistente virtual." |
 
 ### 4E. Monitoreo
 
-- Uptime Kuma: agregar check para el webhook URL
+- Uptime Kuma: agregar check para `https://qynewa.aikalabs.cc/whatsapp/webhook`
 - Revisar quality rating en Meta Dashboard semanalmente
-- Configurar alerta en n8n si el webhook deja de responder
+- Alerta en n8n si el webhook deja de responder
 
-### Entregable Sprint 4
-- App publicada y recibiendo mensajes de cualquier usuario
-- Templates aprobados
-- Monitoreo activo
+**Entregable:** App publicada, templates aprobados, monitoreo activo.
 
 ---
 
-## Timeline estimado
+## Timeline
 
 ```
-Sprint 1 (1-2 dias)     HTTPS + Meta App
-Sprint 2 (1 dia)        Conectar + primer test
-Sprint 3 (1-2 dias)     Testing completo
-Sprint 4 (5-7 dias)     Produccion (la espera es por Meta)
+Sprint 1  COMPLETADO    Firewall, dominio, SSL, Traefik
+Sprint 2  ~1 dia        Registro Meta + conectar + primer test
+Sprint 3  ~1-2 dias     Testing completo
+Sprint 4  ~5-7 dias     Produccion (espera de Meta)
 ```
-
-Total: ~2 semanas, de las cuales ~1 semana es espera de Meta.
 
 ---
 
-## Variables de entorno finales
+## Configuracion final
+
+**Webhook URL:** `https://qynewa.aikalabs.cc/whatsapp/webhook`
+
+**Variables de entorno** (`/opt/qyne-v1/.env`):
 
 ```bash
-# /opt/qyne-v1/.env
-WHATSAPP_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxx    # System User token permanente
-WHATSAPP_PHONE_NUMBER_ID=123456789012345    # De Meta API Setup
-WHATSAPP_VERIFY_TOKEN=qyne-verify-2026      # String que tu inventas
-WHATSAPP_APP_SECRET=abcdef1234567890        # De Meta App > Settings > Basic
+WHATSAPP_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxx
+WHATSAPP_PHONE_NUMBER_ID=123456789012345
+WHATSAPP_VERIFY_TOKEN=qyne-verify-2026
+WHATSAPP_APP_SECRET=abcdef1234567890
 ```
+
+**Certificado SSL:** Let's Encrypt, auto-renovacion via Traefik.
 
 ---
 
-## Notas importantes
+## Notas
 
-- **Directus CRM**: verificado via SSH. Las 7 colecciones existen y
-  funcionan (contacts, companies, tickets, payments, conversations,
-  tasks, events). Ya hay 8 contactos y 15 eventos registrados.
-- **Costo de Meta**: mensajes de servicio (respuestas dentro de 24h)
-  son gratis. Marketing y utility se cobran por mensaje segun pais.
+- **Costo Meta:** Mensajes de servicio (respuestas dentro de 24h) son gratis.
   Colombia: ~$0.0436/msg marketing, ~$0.008/msg utility.
-- **Rate limits**: numero nuevo empieza en Tier 1 (1,000 msgs/dia).
-  Sube automaticamente con buen quality rating.
-- **El numero de Twilio**: solo sirve para recibir el OTP de
-  verificacion. Despues de registrado en Meta, Twilio no interviene.
-- **Coexistence**: no disponible via Self Sign-Up. Si necesitas usar
-  el mismo numero en la app y la API, necesitas un BSP.
+- **Rate limits:** Numero nuevo = Tier 1 (1,000 msgs/dia). Sube con buen quality rating.
+- **Twilio:** Solo sirvio para recibir el OTP. No interviene despues.
+- **Coexistence:** No disponible via Self Sign-Up.
