@@ -170,6 +170,7 @@ services:
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
       WHATSAPP_WEBHOOK_URL: ${WHATSAPP_WEBHOOK_URL:-}
       WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
       N8N_API_KEY: ${N8N_API_KEY:-}
     volumes:
       - agno-data:/app/data
@@ -196,8 +197,9 @@ services:
       - qyne
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.whatsapp.rule=Path(`/whatsapp/webhook`)"
+      - "traefik.http.routers.whatsapp.rule=Host(`qynewa.aikalabs.cc`) && Path(`/whatsapp/webhook`)"
       - "traefik.http.routers.whatsapp.entrypoints=websecure"
+      - "traefik.http.routers.whatsapp.tls.certresolver=letsencrypt"
       - "traefik.http.services.whatsapp.loadbalancer.server.port=8000"
 
   # ---------------------------------------------------------------------------
