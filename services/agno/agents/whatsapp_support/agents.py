@@ -19,6 +19,12 @@ from tools.directus_business import (
     save_company,
     log_conversation,
 )
+from tools.directus_pipeline import (
+    create_deal,
+    update_deal_stage,
+    get_contact_deals,
+    get_pipeline_summary,
+)
 
 # ---------------------------------------------------------------------------
 # Skills per product
@@ -60,6 +66,10 @@ _support_tools = [
     save_company,
     log_conversation,
     _whatsapp_tools,
+    create_deal,
+    update_deal_stage,
+    get_contact_deals,
+    get_pipeline_summary,
 ]
 
 # ---------------------------------------------------------------------------
@@ -82,6 +92,12 @@ _base_instructions = [
     "- Use numbered lists (1. 2. 3.) for steps, bullet points for options.",
     "- Use reply buttons when offering 2-3 choices (e.g., product selection, yes/no).",
     "- Use list messages when offering 4+ options (e.g., plan comparison, FAQ topics).",
+    "",
+    "## Sales pipeline rules",
+    "- When a customer asks about pricing or plans, use create_deal to open a deal.",
+    "- When a deal progresses (demo requested, proposal sent, etc.), use update_deal_stage.",
+    "- Before creating a deal, use get_contact_deals to check if one already exists.",
+    "- If a customer says they are NOT interested, use update_deal_stage with stage=lost.",
 ]
 
 
