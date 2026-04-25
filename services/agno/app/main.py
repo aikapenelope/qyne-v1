@@ -37,7 +37,7 @@ from agents.product_dev.agents import product_manager, ux_researcher, technical_
 from agents.creative.agents import image_generator, video_generator, media_describer
 from agents.marketing.agents import copywriter_es, seo_strategist, social_media_planner
 from agents.whatsapp_support.agents import (
-    whabi_support_agent, docflow_support_agent, aurora_support_agent, general_support_agent,
+    docflow_support_agent, aurora_support_agent, general_support_agent,
 )
 from agents.social.agents import ig_post_agent, twitter_post_agent, linkedin_post_agent, social_auditor
 from agents.competitor.agents import (
@@ -91,7 +91,7 @@ _all_agents = [
     # Marketing
     copywriter_es, seo_strategist, social_media_planner,
     # WhatsApp Support
-    whabi_support_agent, docflow_support_agent, aurora_support_agent, general_support_agent,
+    docflow_support_agent, aurora_support_agent, general_support_agent,
     # Social Media
     ig_post_agent, twitter_post_agent, linkedin_post_agent, social_auditor,
     # Competitor Intel
