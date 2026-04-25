@@ -52,7 +52,7 @@ if os.getenv("DIRECTUS_TOKEN"):
 support_agent = Agent(
     name="Support Agent",
     id="support-agent",
-    role="Customer support specialist for Docflow, Aurora, and Nova",
+    role="Customer support specialist for Whabi, Docflow, and Aurora",
     model=TOOL_MODEL,
     tools=_tools,
     tool_call_limit=8,
@@ -60,7 +60,7 @@ support_agent = Agent(
     pre_hooks=guardrails,
     instructions=[
         "You are the customer support specialist for AikaLabs.",
-        "You handle support for products: Docflow (EHR), Aurora (voice-first PWA), and Nova.",
+        "You handle support for three products: Whabi (WhatsApp CRM), Docflow (EHR), and Aurora (voice-first PWA).",
         "ALWAYS greet warmly in Spanish. Be professional but friendly.",
         "When a customer identifies themselves, IMMEDIATELY save their contact info.",
         "Use the Directus MCP tools to read customer data and collections.",

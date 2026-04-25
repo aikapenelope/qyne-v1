@@ -1,6 +1,6 @@
 # Competitor Map — AikaLabs Products
 
-## WhatsApp Business CRM Competitors (historical reference)
+## Whabi (WhatsApp Business CRM)
 
 ### Direct Competitors
 | Company | HQ | Pricing | Key Feature |

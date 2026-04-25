@@ -50,7 +50,7 @@ if SKILLS_DIR.exists():
     if loaders:
         _skills = Skills(loaders=loaders)
 
-    _onb_dirs = ["docflow", "aurora", "agent-ops"]
+    _onb_dirs = ["whabi", "docflow", "aurora", "agent-ops"]
     loaders = [LocalSkills(str(SKILLS_DIR / d)) for d in _onb_dirs if (SKILLS_DIR / d).exists()]
     if loaders:
         _onboarding_skills = Skills(loaders=loaders)
@@ -163,7 +163,7 @@ automation_agent = Agent(
 dash = Agent(
     name="Dash",
     id="dash",
-    role="Data analytics agent for Docflow, Aurora, and Nova business metrics",
+    role="Data analytics agent for Whabi, Docflow, and Aurora business metrics",
     model=TOOL_MODEL,
     tools=[CalculatorTools(), PythonTools()] + _automation_tools,
     tool_call_limit=5,
@@ -174,7 +174,7 @@ dash = Agent(
         "You are Dash, a self-learning data analytics agent.",
         "",
         "## Your Purpose",
-        "Answer business questions about Docflow, Aurora, and Nova using",
+        "Answer business questions about Whabi, Docflow, and Aurora using",
         "data from Directus CRM. Interpret data, find patterns, explain meaning.",
         "",
         "## Data Sources",
@@ -183,6 +183,7 @@ dash = Agent(
         "- Python: complex calculations, data transformations",
         "",
         "## Product Context",
+        "- Whabi: WhatsApp CRM. Key metrics: leads, conversion rate, response time",
         "- Docflow: EHR system. Key metrics: documents processed, compliance rate",
         "- Aurora: Voice PWA. Key metrics: active users, voice commands/day, retention",
         "",
@@ -271,7 +272,7 @@ onboarding_agent = Agent(
         "You are the onboarding specialist for AikaLabs products.",
         "You guide new clients through setup step by step in Spanish.",
         "",
-        "## Products: Docflow (EHR), Aurora (Voice PWA), Nova",
+        "## Products: Whabi (WhatsApp CRM), Docflow (EHR), Aurora (Voice PWA)",
         "",
         "## Rules",
         "- Always ask which product the client is onboarding for",
@@ -378,6 +379,7 @@ invoice_agent = Agent(
         "You respond in Spanish (Latin America neutral).",
         "",
         "## Pricing Reference",
+        "- Whabi Starter: $49/mes | Pro: $149/mes | Enterprise: custom",
         "- Docflow Basic: $99/mes | Pro: $249/mes | Enterprise: custom",
         "- Aurora Free: $0 | Pro: $29/mes | Business: $79/mes",
         "",

@@ -95,7 +95,7 @@ trigger_prefect_flow("d1e55ba8-7837-4c67-942c-59adb0b3323b", '{"dry_run": true}'
 
 **Save a contact:**
 ```
-save_contact(first_name="Juan", last_name="Perez", email="juan@example.com", phone="+58412...", company_name="TechCorp", product="docflow", lead_score=7)
+save_contact(first_name="Juan", last_name="Perez", email="juan@example.com", phone="+58412...", company_name="TechCorp", product="whabi", lead_score=7)
 ```
 
 **Save a company:**
@@ -105,22 +105,22 @@ save_company(name="TechCorp", domain="techcorp.com", employees=50, industry="tec
 
 **Log a conversation:**
 ```
-log_conversation(client_name="Juan Perez", product="docflow", channel="whatsapp", summary="Pregunto por precios", intent="pricing", sentiment="positive", lead_score=7)
+log_conversation(client_name="Juan Perez", product="whabi", channel="whatsapp", summary="Pregunto por precios", intent="pricing", sentiment="positive", lead_score=7)
 ```
 
 **Log a support ticket:**
 ```
-log_support_ticket(product="docflow", intent="pricing", summary="Cliente pregunta precios", resolution="Se envio cotizacion", urgency="medium", lead_score=7)
+log_support_ticket(product="whabi", intent="pricing", summary="Cliente pregunta precios", resolution="Se envio cotizacion", urgency="medium", lead_score=7)
 ```
 
 **Confirm a payment (requires approval):**
 ```
-confirm_payment(product="docflow", client_name="Juan Perez", amount="149", method="transfer", reference="REF-001")
+confirm_payment(product="whabi", client_name="Juan Perez", amount="149", method="transfer", reference="REF-001")
 ```
 
 **Escalate to human:**
 ```
-escalate_to_human(product="docflow", reason="Cliente insatisfecho con el servicio", client_name="Juan Perez", urgency="high")
+escalate_to_human(product="whabi", reason="Cliente insatisfecho con el servicio", client_name="Juan Perez", urgency="high")
 ```
 
 ### Read Operations (MCP — Directus Content MCP)

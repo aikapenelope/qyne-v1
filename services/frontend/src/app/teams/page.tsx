@@ -178,6 +178,7 @@ export default function TeamsPage() {
               <div className="ml-4">├── Creative Studio (media)</div>
               <div className="ml-4">└── Marketing Latam (coordinate)</div>
               <div className="mt-2">WhatsApp Support (independiente)</div>
+              <div className="ml-4">├── Whabi Support</div>
               <div className="ml-4">├── Docflow Support</div>
               <div className="ml-4">├── Aurora Support</div>
               <div className="ml-4">└── General Support</div>

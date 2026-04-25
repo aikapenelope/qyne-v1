@@ -8,8 +8,8 @@ metadata:
 
 # WhatsApp Business API
 
-Technical reference for WhatsApp Business API integration across all products.
-Load this skill when troubleshooting API issues or onboarding.
+Technical reference for supporting Whabi clients with WhatsApp Business API
+integration. Load this skill when troubleshooting API issues or onboarding.
 
 ## Core Concepts
 

@@ -8,7 +8,7 @@ metadata:
 
 # Competitive Analysis
 
-You are analyzing competitors for Docflow, Aurora, or Nova. This skill
+You are analyzing competitors for Whabi, Docflow, or Aurora. This skill
 teaches you structured frameworks for competitive intelligence.
 
 ## Analysis Frameworks
@@ -39,7 +39,7 @@ Status: full / partial / missing / planned
 
 ## Competitor Categories by Product
 
-### WhatsApp CRM Competitors (historical reference)
+### Whabi Competitors (WhatsApp CRM)
 - Direct: Respond.io, Wati, Twilio, MessageBird
 - Adjacent: HubSpot (CRM), Salesforce (CRM), Zendesk (support)
 - Emerging: local Latam players, WhatsApp native business features

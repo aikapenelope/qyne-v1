@@ -21,7 +21,7 @@ interface Conversation {
   id: string;
   phone: string;
   name: string;
-  product: "docflow" | "aurora" | "nova" | "general";
+  product: "whabi" | "docflow" | "aurora" | "general";
   lastMessage: string;
   timestamp: string;
   status: "active" | "waiting" | "resolved";
@@ -47,8 +47,8 @@ const MOCK_CONVERSATIONS: Conversation[] = [
     id: "2",
     phone: "+57 311 987 6543",
     name: "Maria Lopez",
-    product: "docflow",
-    lastMessage: "Como configuro los permisos de usuario?",
+    product: "whabi",
+    lastMessage: "Como configuro las campanas automaticas?",
     timestamp: "13:15",
     status: "waiting",
     unread: 0,
@@ -76,7 +76,7 @@ const MOCK_CONVERSATIONS: Conversation[] = [
 ];
 
 const PRODUCT_COLORS: Record<string, string> = {
-  nova: "bg-orange-500/10 text-orange-400",
+  whabi: "bg-green-500/10 text-green-400",
   docflow: "bg-blue-500/10 text-blue-400",
   aurora: "bg-violet-500/10 text-violet-400",
   general: "bg-zinc-800 text-zinc-400",
@@ -127,7 +127,7 @@ function ConversationList({
 
       {/* Filters */}
       <div className="flex gap-1 px-3 py-2 border-b border-[#1e1e24]">
-        {["all", "docflow", "aurora", "nova"].map((f) => (
+        {["all", "whabi", "docflow", "aurora"].map((f) => (
           <button
             key={f}
             onClick={() => onFilterChange(f)}
